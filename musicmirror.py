@@ -806,7 +806,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=15)
+            outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
                 if cfg["flac_codec"] == "ffmpeg": # Overwrite with the temp file
                     shutil.move(tmp_path, entry.library_path)
@@ -837,8 +837,8 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
                     return False, False
 
-        except TimeoutExpired:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: Reencode subprocess for {reencode_log} timed out")
+        except subprocess.TimeoutExpired:
+            Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False, False
 
 # Returns whether successful and whether interrupted
@@ -865,7 +865,7 @@ def TranscodeFlac(entry) -> Tuple[bool, bool]:
 
     with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=15)
+            outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
 
                 entry.fingerprint_on_last_transcode = entry.fingerprint_on_last_scan
@@ -890,8 +890,8 @@ def TranscodeFlac(entry) -> Tuple[bool, bool]:
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
                     return False, False
 
-        except TimeoutExpired:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: Transcode subprocess for {transcode_log} timed out")
+        except subprocess.TimeoutExpired:
+            Log(LogLevel.WARN, f"Transcode subprocess for {transcode_log} timed out")
             return False, False
 
 def CreateOrUpdateCacheDirEntry(full_path) -> int:
