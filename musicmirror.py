@@ -831,9 +831,13 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                 if cfg["flac_codec"] == "ffmpeg" and p.returncode == 255: # 255 seems to mean ffmpeg was terminated mid-run
                     Path.unlink(tmp_path, missing_ok=True)
                     return False, True
+                elif p.returncode < 0:
+                    Log(LogLevel.WARN, f"{reencode_log}\n" \
+                                       f"{bcolors.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                    return False, False
                 else:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
-                                       f"{bcolors.WARNING}FLAC reencode failed:\n" \
+                                       f"{bcolors.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
                     return False, False
 
@@ -884,9 +888,13 @@ def TranscodeFlac(entry) -> Tuple[bool, bool]:
                 if cfg["flac_codec"] == "ffmpeg" and p.returncode == 255: # 255 seems to mean ffmpeg was terminated mid-run
                     Path.unlink(entry.portable_path, missing_ok=True)
                     return False, True
+                elif p.returncode < 0:
+                    Log(LogLevel.WARN, f"{transcode_log}\n" \
+                                       f"{bcolors.WARNING}Transcode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                    return False, False
                 else:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
-                                       f"{bcolors.WARNING}Transcode failed:\n" \
+                                       f"{bcolors.WARNING}Transcode failed with return code {p.returncode}:\n" \
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
                     return False, False
 
