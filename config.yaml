@@ -1,0 +1,35 @@
+# Valid log levels: error, warn, info, debug, trace. Debug and trace print logs for every track processed. Info only prints summaries at the end of each step. Warn only logs on issues. Any error log will terminate the script
+log_level: "trace"
+# The path to the yaml file that contains the library status / cache / fingnerprints
+library_status_path: "fingerprints.yaml"
+# The path to the source music library
+library_path: ""
+# The path to the mirrored music library
+output_library_path: ""
+# The path to the source music library playlists. Currently only M3U and M3U8 playlists are supported
+library_playlist_path: ""
+# The path to the mirrored music library playlists
+portable_playlist_path: ""
+# The opus bitrate to transcode at
+opus_bitrate: 96
+# Whether to allow modifications to the source music library
+allow_library_modification: False
+# The codec to use to reencode flacs. Supported codecs: flac, ffmpeg
+flac_codec: "flac"
+# The codec to use to transcode flacs to opus. Supported codecs: opusenc, ffmpeg_libopus, ffmpeg_opus
+opus_codec: "opusenc"
+# The codec to use to test flacs. Supported codecs: flac, ffprobe
+flac_tester: "flac"
+# Whether to use the SHA224 hash of a file as its fingerprint, as opposed to the file modification time. The hash takes longer to compute (modification time is basically instant to grab), but eliminates false positives
+use_hash_as_fingerprint: False
+# The number of worker threads to use when scanning, reencoding, or mirroring. Set to 0 to use 1 thread per available core
+num_threads: 0
+# The method to mirror non-transcoded files by:
+# copy:      make a copy of the file
+# soft_link: create a soft link / symbolic link to the original file. This saves space since files are not copied. On Windows this may require running as admin
+# hard_link: create a hard link to the original file. Similar to a soft link but the source and mirrored music libraries must reside on the same filesystem
+file_mirror_method: "copy"
+# Whether to print the full paths to library files in logs (e.g. song.flac vs library/song.flac)
+log_full_paths: True
+# Whether to ignore hidden files. The implementation here considers a non-hidden file inside a hidden directory to be hidden
+ignore_hidden: True
