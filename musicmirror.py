@@ -1035,7 +1035,7 @@ def PrintScanSummary(summary, early_exit=False) -> None:
         PrintFailureList('Failed flac tests:', summary["failed_flac_tests"])
 
     if early_exit:
-        QuitWithoutSaving()
+        SaveAndQuit()
 
 def IsHiddenFile(path) -> bool:
     global is_windows
