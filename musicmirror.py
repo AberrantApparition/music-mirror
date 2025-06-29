@@ -813,6 +813,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
 
                 fingerprint = CalculateFingerprint(entry.library_path)
                 entry.fingerprint_on_last_scan = fingerprint
+                entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_reencode = fingerprint
                 entry.flac_codec_on_last_reencode = flac_codec_version
 
