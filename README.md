@@ -6,7 +6,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 
 ## Features
 - Reencode all FLAC files in library with max compression and 4 KiB of padding
-- Test FLACs to check for errors
+- Test decoding all FLACs to check for errors
 - Mirror entire library with all FLAC files transcoded to Opus
 - Mirror non-FLAC files by copy, symlink, or hard-link
 - Fingerprints either in the form of either file modification times or file hashes
@@ -21,7 +21,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - Only supports FLAC and Opus
 - No extra processing is done on FLAC tags once transcoded to Opus. For example, ReplayGain tags will not be updated to R128_*_GAIN tags. Use a tool like `rsgain` to update ReplayGain tags after running MusicMirror
 - Not tested on Windows or Mac (though it is designed to work cross-platform)
-- Padding is only adjusted with flac, not ffmpeg
+- Padding is only adjusted with the `flac` codec, not `ffmpeg`
 
 ## Requirements
 - Python 3.10 or higher
@@ -42,6 +42,10 @@ Scan library to build or update fingerprints file:
    ```bash
    ./musicmirror.py scan
    ```
+Scan library and test decoding flac files:
+   ```bash
+   ./musicmirror.py scan -t
+   ```
 List scanned library items:
    ```bash
    ./musicmirror.py list
@@ -54,3 +58,17 @@ Mirror library:
    ```bash
    ./musicmirror.py mirror
    ```
+Mirror playlists, to reference Opus tracks:
+   ```bash
+   ./musicmirror.py convert_playlists
+   ```
+
+You can interrupt the script with `ctrl-c`. The script will let threads finish their current task (though `ffmpeg` threads will terminate immediately) and save current progress in `fingerprints.yaml`
+
+### Control when actions are re-done
+
+`scan -t` will only test flac files on first run or when their fingerprints change.  `scan -u` will re-test if the testing tool has updated or changed since the last test. `scan -T` will test all flac files.
+
+By default `reencode` and `mirror` will only re-run on a file if its fingerprint changes. `reencode` and `mirror` share options. `-u` will additionally re-run on files if the relevant codec has updated or been changed since last run. `-f` will re-run on every file. `-k` will skip the scan that normally happens at the start of each `reencode` or `mirror`. If you use `-k` be careful to ensure that the source library is not modified between `scan` and `reencode`/`mirror`.
+
+`reencode`, `mirror`, and `convert_playlists` all have a `--dry-run` option that only shows what changes will happen.
