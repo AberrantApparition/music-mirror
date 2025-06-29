@@ -796,10 +796,11 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
         Log(LogLevel.TRACE, f"Dry run: {reencode_log}")
         return True, False
 
+    # Write to a temp file first, then overwrite if encoding successful
+    tmp_path = entry.library_path + ".tmp"
     if cfg["flac_codec"] == "flac":
-        flac_args = ['flac', '--silent', '--best', '--no-preserve-modtime', '-f', entry.library_path, '-o', entry.library_path]
+        flac_args = ['flac', '--silent', '--best', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
     elif cfg["flac_codec"] == "ffmpeg":
-        tmp_path = entry.library_path[:-5] + ".tmp" + entry.library_path[-5:] # ffmpeg will not overwrite a FLAC in place, so write to a temp file
         flac_args = ['ffmpeg', '-i', entry.library_path, '-v', 'warning', '-compression_level', '8', '-c:a', 'flac', tmp_path]
     else:
         Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: No FLAC codec to reencode with??? flac_codec = " + cfg["flac_codec"])
@@ -808,8 +809,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
         try:
             outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
-                if cfg["flac_codec"] == "ffmpeg": # Overwrite with the temp file
-                    shutil.move(tmp_path, entry.library_path)
+                shutil.move(tmp_path, entry.library_path)
 
                 fingerprint = CalculateFingerprint(entry.library_path)
                 entry.fingerprint_on_last_scan = fingerprint
@@ -829,8 +829,8 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                 return True, False
 
             else:
+                Path.unlink(tmp_path, missing_ok=True)
                 if cfg["flac_codec"] == "ffmpeg" and p.returncode == 255: # 255 seems to mean ffmpeg was terminated mid-run
-                    Path.unlink(tmp_path, missing_ok=True)
                     return False, True
                 elif p.returncode < 0:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
@@ -843,6 +843,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                     return False, False
 
         except subprocess.TimeoutExpired:
+            Path.unlink(tmp_path, missing_ok=True)
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False, False
 
