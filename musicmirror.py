@@ -797,7 +797,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
         return True, False
 
     if cfg["flac_codec"] == "flac":
-        flac_args = ['flac', '-s', '-8', '--no-preserve-modtime', '-f', entry.library_path, '-o', entry.library_path]
+        flac_args = ['flac', '--silent', '--best', '--no-preserve-modtime', '-f', entry.library_path, '-o', entry.library_path]
     elif cfg["flac_codec"] == "ffmpeg":
         tmp_path = entry.library_path[:-5] + ".tmp" + entry.library_path[-5:] # ffmpeg will not overwrite a FLAC in place, so write to a temp file
         flac_args = ['ffmpeg', '-i', entry.library_path, '-v', 'warning', '-compression_level', '8', '-c:a', 'flac', tmp_path]
