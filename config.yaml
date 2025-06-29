@@ -1,5 +1,5 @@
 # Valid log levels: error, warn, info, debug, trace. Debug and trace print logs for every track processed. Info only prints summaries at the end of each step. Warn only logs on issues. Any error log will terminate the script
-log_level: "trace"
+log_level: "debug"
 # The path to the yaml file that contains the library status / cache / fingnerprints
 library_status_path: "fingerprints.yaml"
 # The path to the source music library
