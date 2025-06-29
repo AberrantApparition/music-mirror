@@ -54,7 +54,7 @@ def SetThreadName() -> None:
     if thread_name == "MainThread":
         thread_info.name = "Main"
     else:
-        thread_num = thread_name[-1:].zfill(2)
+        thread_num = thread_name.split('_')[-1].zfill(2)
         thread_info.name = f"WT{thread_num}"
 
 def Log(level, log) -> None:
