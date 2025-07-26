@@ -10,7 +10,7 @@ output_library_path: ""
 library_playlist_path: ""
 # The path to the mirrored music library playlists
 portable_playlist_path: ""
-# The opus bitrate to transcode at
+# The opus bitrate to transcode at, in Kbps
 opus_bitrate: 96
 # Whether to allow modifications to the source music library
 allow_library_modification: False
@@ -33,3 +33,5 @@ file_mirror_method: "copy"
 log_full_paths: True
 # Whether to ignore hidden files. The implementation here considers a non-hidden file inside a hidden directory to be hidden
 ignore_hidden: True
+# The amount of padding to set when re-encoding flacs, in bytes (only possible with flac codec, not ffmpeg)
+padding_size: 4096

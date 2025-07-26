@@ -5,7 +5,7 @@ Maintain a mirror image of a FLAC music library, transcoded to Opus.
 A fingerprint of each file is saved in `fingerprints.yaml`, allowing for incremental processing of only updated or new files.
 
 ## Features
-- Reencode all FLAC files in library with max compression and 4 KiB of padding
+- Reencode all FLAC files in library with max compression and configurable padding
 - Test decoding all FLACs to check for errors
 - Mirror entire library with all FLAC files transcoded to Opus
 - Mirror non-FLAC files by copy, symlink, or hard-link

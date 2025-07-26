@@ -139,6 +139,7 @@ def ValidateConfig(cfg) -> bool:
     ok = ok and ValidateConfigDictKey(cfg, "file_mirror_method", str)
     ok = ok and ValidateConfigDictKey(cfg, "log_full_paths", bool)
     ok = ok and ValidateConfigDictKey(cfg, "ignore_hidden", bool)
+    ok = ok and ValidateConfigDictKey(cfg, "padding_size", int)
 
     if not ok:
         return False
@@ -161,7 +162,14 @@ def ValidateConfig(cfg) -> bool:
     if (ok):
         Log(LogLevel.INFO, f"Log level set to {cfg["log_level"]}")
 
-    # Do not validate opus bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
+    # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
+    if cfg["opus_bitrate"] <= 0:
+        Log(LogLevel.WARN, f"Opus bitrate must be a positive integer")
+        ok = False
+
+    if cfg["padding_size"] < 0:
+        Log(LogLevel.WARN, f"Flac padding size cannot be negative")
+        ok = False
 
     if cfg["flac_codec"] != "flac" and cfg["flac_codec"] != "ffmpeg":
         Log(LogLevel.WARN, f"Invalid flac codec {cfg["flac_codec"]}. Supported codecs: flac, ffmpeg")
@@ -799,7 +807,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
     if cfg["flac_codec"] == "flac":
-        flac_args = ['flac', '--silent', '--best', '--verify', '--padding=4096', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
+        flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
     elif cfg["flac_codec"] == "ffmpeg":
         flac_args = ['ffmpeg', '-i', entry.library_path, '-v', 'warning', '-compression_level', '8', '-c:a', 'flac', tmp_path]
     else:
