@@ -22,6 +22,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - No extra processing is done on FLAC tags once transcoded to Opus. For example, ReplayGain tags will not be updated to R128_*_GAIN tags. Use a tool like `rsgain` to update ReplayGain tags after running MusicMirror
 - Not tested on Windows or Mac (though it is designed to work cross-platform)
 - Padding is only adjusted with the `flac` codec, not `ffmpeg`
+- Will reencode on any change to flac file, even if a reencode is not necessary. This will be fixed at some point
 
 ## Requirements
 - Python 3.10 or higher
