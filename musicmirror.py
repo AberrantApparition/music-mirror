@@ -230,6 +230,11 @@ def SetUpChildSignals() -> None:
     signal.signal(signal.SIGHUP, signal.SIG_IGN)
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+# Leave the date off the end of the vendor string; cannot get the date without manually making a big version->date map
+def ConvertFlacVersionToVendorString(version) -> str:
+    version_number = version.split(' ')[1]
+    return f"reference libFLAC {version_number}"
+
 def CheckDependencies() -> None:
     global cfg
     global flac_version
@@ -240,6 +245,7 @@ def CheckDependencies() -> None:
         if flac_output.returncode < 0:
             QuitWithoutSaving()
         flac_version = flac_output.stdout.decode('utf-8')[:-1]
+        flac_version = ConvertFlacVersionToVendorString(flac_version)
     except subprocess.CalledProcessError as exc:
         flac_error = str(exc)
 
