@@ -131,9 +131,6 @@ def ValidateConfig(cfg) -> bool:
     ok = ok and ValidateConfigDictKey(cfg, "portable_playlist_path", str)
     ok = ok and ValidateConfigDictKey(cfg, "opus_bitrate", int)
     ok = ok and ValidateConfigDictKey(cfg, "allow_library_modification", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "flac_codec", str)
-    ok = ok and ValidateConfigDictKey(cfg, "opus_codec", str)
-    ok = ok and ValidateConfigDictKey(cfg, "flac_tester", str)
     ok = ok and ValidateConfigDictKey(cfg, "use_hash_as_fingerprint", bool)
     ok = ok and ValidateConfigDictKey(cfg, "num_threads", int)
     ok = ok and ValidateConfigDictKey(cfg, "file_mirror_method", str)
@@ -169,18 +166,6 @@ def ValidateConfig(cfg) -> bool:
 
     if cfg["padding_size"] < 0:
         Log(LogLevel.WARN, f"Flac padding size cannot be negative")
-        ok = False
-
-    if cfg["flac_codec"] != "flac" and cfg["flac_codec"] != "ffmpeg":
-        Log(LogLevel.WARN, f"Invalid flac codec {cfg["flac_codec"]}. Supported codecs: flac, ffmpeg")
-        ok = False
-
-    if cfg["opus_codec"] != "opusenc" and cfg["opus_codec"] != "ffmpeg_libopus" and cfg["opus_codec"] != "ffmpeg_opus":
-        Log(LogLevel.WARN, f"Invalid opus codec {cfg["opus_codec"]}. Supported codecs: opusenc, ffmpeg libopus, ffmpeg opus")
-        ok = False
-
-    if cfg["flac_tester"] != "flac" and cfg["opus_codec"] != "ffprobe":
-        Log(LogLevel.WARN, f"Invalid opus codec {cfg["opus_codec"]}. Supported codecs: flac, ffprobe")
         ok = False
 
     if cfg["num_threads"] > os.process_cpu_count():
@@ -247,28 +232,8 @@ def SetUpChildSignals() -> None:
 
 def CheckDependencies() -> None:
     global cfg
-    global flac_codec_version
-    global flac_tester_version
-    global opus_codec_version
-
-    try:
-        ffmpeg_output = subprocess.run(['ffmpeg', '-version'], capture_output=True)
-        if ffmpeg_output.returncode < 0:
-            QuitWithoutSaving()
-        ffmpeg_long_version = ffmpeg_output.stdout.decode('utf-8')
-        ffmpeg_long_version_split = ffmpeg_long_version.split()
-        ffmpeg_version = ffmpeg_long_version_split[0] + ' ' + ffmpeg_long_version_split[2]
-    except subprocess.CalledProcessError as exc:
-        ffmpeg_error = str(exc)
-
-    try:
-        ffprobe_output = subprocess.run(['ffprobe', '-version'], capture_output=True)
-        if ffprobe_output.returncode < 0:
-            QuitWithoutSaving()
-        ffprobe_long_version = ffprobe_output.stdout.decode('utf-8').split()
-        ffprobe_version = ffprobe_long_version[0] + ' ' + ffprobe_long_version[2]
-    except subprocess.CalledProcessError as exc:
-        ffprobe_error = str(exc)
+    global flac_version
+    global opus_version
 
     try:
         flac_output = subprocess.run(['flac', '--version'], capture_output=True)
@@ -279,88 +244,46 @@ def CheckDependencies() -> None:
         flac_error = str(exc)
 
     try:
-        opusenc_output = subprocess.run(['opusenc', '--version'], capture_output=True)
-        if opusenc_output.returncode < 0:
+        opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
+        if opus_output.returncode < 0:
             QuitWithoutSaving()
-        opusenc_version = opusenc_output.stdout.decode('utf-8').split("\n")[0]
+        opus_version = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
-        opusenc_error = str(exc)
+        opus_error = str(exc)
 
-    if cfg["flac_codec"] == "ffmpeg":
-        if ffmpeg_long_version.find("flac") >= 0:
-            flac_codec_version = ffmpeg_version + " flac"
-        else:
-            Log(LogLevel.WARN, "ffmpeg does not include flac codec - cannot encode Opus files") # TODO is this true?
-    elif cfg["flac_codec"] == "flac":
-        if flac_version:
-            flac_codec_version = flac_version
-        else:
-            Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
+    if not flac_version:
+        Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
 
-    if cfg["opus_codec"] == "ffmpeg_libopus" or cfg["opus_codec"] == "ffmpeg_opus":
-        if ffmpeg_version:
-            if cfg["opus_codec"] == "ffmpeg_libopus":
-                if ffmpeg_long_version.find("libopus") >= 0:
-                    opus_codec_version = ffmpeg_version + " libopus"
-                else:
-                    Log(LogLevel.WARN, "ffmpeg does not include libopus codec - cannot encode Opus files")
-            elif cfg["opus_codec"] == "ffmpeg_opus":
-                if ffmpeg_long_version.find(",opus") >= 0: # Do not match libopus
-                    opus_codec_version = ffmpeg_version + " opus"
-                else:
-                    Log(LogLevel.WARN, "ffmpeg does not include opus codec - cannot encode Opus files")
-        else:
-            Log(LogLevel.WARN, "ffmpeg unavailable - cannot encode Opus files: " + ffmpeg_error)
-    elif cfg["opus_codec"] == "opusenc":
-        if opusenc_version:
-            opus_codec_version = opusenc_version
-        else:
-            Log(LogLevel.WARN, "libopus codec unavailable - cannot encode Opus files: " + opusenc_error)
-
-    if cfg["flac_tester"] == "ffprobe":
-        if ffprobe_version:
-            flac_tester_version = ffprobe_version
-        else:
-            Log(LogLevel.WARN, "ffprobe unavailable - cannot test FLACs: " + ffprobe_error)
-    elif cfg["flac_tester"] == "flac":
-        if flac_version:
-            flac_tester_version = flac_version
-        else:
-            if cfg["flac_codec"] == "flac":
-                Log(LogLevel.WARN, "flac codec unavailable - cannot test FLACs: " + flac_error)
-            else:
-                Log(LogLevel.WARN, "flac codec (separate from the ffmpeg flac codec) unavailable - cannot test FLACs: " + flac_error)
+    if not opus_version:
+        Log(LogLevel.WARN, "opus codec unavailable - cannot encode Opus files: " + opus_error)
 
     Log(LogLevel.INFO, "Python version: " + str(sys.version))
-    if flac_tester_version:
-        Log(LogLevel.INFO, "FLAC tester:    " + flac_tester_version)
-    if flac_codec_version:
-        Log(LogLevel.INFO, "FLAC codec:     " + flac_codec_version)
-    if opus_codec_version:
-        Log(LogLevel.INFO, "Opus codec:     " + opus_codec_version)
+    if flac_version:
+        Log(LogLevel.INFO, "flac version:   " + flac_version)
+    if opus_version:
+        Log(LogLevel.INFO, "Opus version:   " + opus_version)
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
     global args
     global cfg
-    global flac_codec_version
-    global flac_tester_version
-    global opus_codec_version
+    global flac_version
+    global opus_version
     global test_specified
 
-    if test_specified and not flac_tester_version:
-        Log(LogLevel.ERROR, "flac tester unavailable to test FLACs with")
+    if test_specified and not flac_version:
+        Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
     if not cfg["allow_library_modification"] and args.func == reencode_library:
         Log(LogLevel.ERROR, "Config setting 'allow_library_modification' is disabled. Enable to allow reencoding of library")
 
-    if not flac_codec_version and args.func == reencode_library:
+    if not flac_version and args.func == reencode_library:
         Log(LogLevel.ERROR, "Cannot reencode library without a FLAC codec available")
 
     # TODO is this true?
-    if not flac_codec_version and args.func == mirror_library:
+    if not flac_version and args.func == mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
 
-    if not opus_codec_version and args.func == mirror_library:
+    if not opus_version and args.func == mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
@@ -562,7 +485,7 @@ class FlacEntry():
     fingerprint_on_last_transcode: str
     fingerprint_on_last_test: str
     test_pass: bool
-    flac_tester_on_last_test: str
+    flac_codec_on_last_test: str
     flac_codec_on_last_reencode: str
     opus_codec_on_last_transcode: str
 
@@ -592,7 +515,7 @@ class FlacEntry():
             self.fingerprint_on_last_reencode = ''
             self.fingerprint_on_last_transcode = ''
             self.fingerprint_on_last_test = ''
-            self.flac_tester_on_last_test = ''
+            self.flac_codec_on_last_test = ''
             self.flac_codec_on_last_reencode = ''
             self.opus_codec_on_last_transcode = ''
             self.test_pass = False
@@ -625,7 +548,7 @@ class FlacEntry():
                 'fingerprint_on_last_transcode': self.fingerprint_on_last_transcode,
                 'fingerprint_on_last_test': self.fingerprint_on_last_test,
                 'test_pass': self.test_pass,
-                'flac_tester_on_last_test': self.flac_tester_on_last_test,
+                'flac_codec_on_last_test': self.flac_codec_on_last_test,
                 'flac_codec_on_last_reencode': self.flac_codec_on_last_reencode,
                 'opus_codec_on_last_transcode': self.opus_codec_on_last_transcode,
             }
@@ -745,14 +668,9 @@ def TestFlac(file_path) -> Tuple[bool, str]:
 
     test_error = ''
 
-    if cfg["flac_tester"] == "ffprobe":
-        test_result = subprocess.run(['ffprobe', '-v', '24', file_path], capture_output=True)
-        if test_result.stderr:
-            test_error = test_result.stderr.decode("utf-8")[:-1]
-    elif cfg["flac_tester"] == "flac":
-        test_result = subprocess.run(['flac', '-t', '-w', '-s', file_path], capture_output=True)
-        if test_result.returncode != 0:
-            test_error = test_result.stderr.decode("utf-8").split(".flac: ")[-1][:-1]
+    test_result = subprocess.run(['flac', '-t', '-w', '-s', file_path], capture_output=True)
+    if test_result.returncode != 0:
+        test_error = test_result.stderr.decode("utf-8").split(".flac: ")[-1][:-1]
 
     if test_error:
         status = f"{bcolors.WARNING}FLAC test failed:\n{test_error}{bcolors.ENDC}"
@@ -761,7 +679,7 @@ def TestFlac(file_path) -> Tuple[bool, str]:
     return True, status
 
 def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[bool, bool, str]:
-    global flac_tester_version
+    global flac_version
     global retest_on_update
     global test
     global test_force
@@ -771,11 +689,11 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
     status = ""
     if (test_specified and is_new) or \
         ((test and (is_new or is_modified or not entry.fingerprint_on_last_test)) or \
-         (retest_on_update and (fingerprint != entry.fingerprint_on_last_test or entry.flac_tester_on_last_test != flac_tester_version)) or \
+         (retest_on_update and (fingerprint != entry.fingerprint_on_last_test or entry.flac_codec_on_last_test != flac_version)) or \
          test_force):
         entry.test_pass, status = TestFlac(entry.library_path)
         entry.fingerprint_on_last_test = fingerprint
-        entry.flac_tester_on_last_test = flac_tester_version
+        entry.flac_codec_on_last_test = flac_version
         test_ran = True
 
     return test_ran, entry.test_pass, status
@@ -792,26 +710,21 @@ def CalculateFingerprint(file_path) -> str:
     else:
         return str(datetime.fromtimestamp(Path(file_path).stat().st_mtime, timezone.utc))
 
-# Returns whether successful and whether interrupted
-def ReencodeFlac(entry) -> Tuple[bool, bool]:
+# Returns whether successful
+def ReencodeFlac(entry) -> bool:
     global cfg
-    global flac_codec_version
+    global flac_version
     global log_prefix_indent
 
     reencode_log = f"Reencode {entry.formatted_path}"
 
     if args.dry_run:
         Log(LogLevel.TRACE, f"Dry run: {reencode_log}")
-        return True, False
+        return True
 
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
-    if cfg["flac_codec"] == "flac":
-        flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
-    elif cfg["flac_codec"] == "ffmpeg":
-        flac_args = ['ffmpeg', '-i', entry.library_path, '-v', 'warning', '-compression_level', '8', '-c:a', 'flac', tmp_path]
-    else:
-        Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: No FLAC codec to reencode with??? flac_codec = " + cfg["flac_codec"])
+    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
@@ -823,7 +736,7 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_reencode = fingerprint
-                entry.flac_codec_on_last_reencode = flac_codec_version
+                entry.flac_codec_on_last_reencode = flac_version
 
                 if cfg["log_level"] >= LogLevel.TRACE:
                     reencode_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
@@ -834,48 +747,37 @@ def ReencodeFlac(entry) -> Tuple[bool, bool]:
                 else:
                     reencode_log_level = LogLevel.DEBUG
                 Log(reencode_log_level, reencode_log)
-                return True, False
+                return True
 
             else:
                 Path.unlink(tmp_path, missing_ok=True)
-                if cfg["flac_codec"] == "ffmpeg" and p.returncode == 255: # 255 seems to mean ffmpeg was terminated mid-run
-                    return False, True
-                elif p.returncode < 0:
+                if p.returncode < 0:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
                                        f"{bcolors.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
-                    return False, False
+                    return False
                 else:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
                                        f"{bcolors.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
-                    return False, False
+                    return False
 
         except subprocess.TimeoutExpired:
             Path.unlink(tmp_path, missing_ok=True)
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
-            return False, False
+            return False
 
-# Returns whether successful and whether interrupted
-def TranscodeFlac(entry) -> Tuple[bool, bool]:
+# Returns whether successful
+def TranscodeFlac(entry) -> bool:
     global cfg
-    global opus_codec_version
+    global opus_version
 
     transcode_log = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
 
     if args.dry_run:
         Log(LogLevel.TRACE, f"Dry run: {transcode_log}")
-        return True, False
+        return True, se
 
-    if cfg["opus_codec"] == "opusenc":
-        transcode_args = ['opusenc', '--quiet', '--music', '--bitrate', str(cfg["opus_bitrate"]), entry.library_path, entry.portable_path]
-    elif cfg["opus_codec"] == "ffmpeg_libopus" or cfg["opus_codec"] == "ffmpeg_opus":
-        if cfg["opus_codec"] == "ffmpeg_libopus":
-            ffmpeg_codec = ['libopus']
-        else:
-            ffmpeg_codec = ['opus', '-strict', '-2'] # explicitly allow experimental codec
-        transcode_args = ['ffmpeg', '-i', entry.library_path, '-v', 'warning', '-y', '-c:a'] + ffmpeg_codec + ['-b:a', str(cfg["opus_bitrate"]) + 'K', entry.portable_path]
-    else:
-        Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: No Opus codec to transcode with??? opus_codec = " + cfg["opus_codec"])
+    transcode_args = ['opusenc', '--quiet', '--music', '--bitrate', str(cfg["opus_bitrate"]), entry.library_path, entry.portable_path]
 
     with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
@@ -883,7 +785,7 @@ def TranscodeFlac(entry) -> Tuple[bool, bool]:
             if p.returncode == 0:
 
                 entry.fingerprint_on_last_transcode = entry.fingerprint_on_last_scan
-                entry.opus_codec_on_last_transcode = opus_codec_version
+                entry.opus_codec_on_last_transcode = opus_version
 
                 if errs:
                     transcode_log_level = LogLevel.WARN
@@ -892,25 +794,22 @@ def TranscodeFlac(entry) -> Tuple[bool, bool]:
                 else:
                     transcode_log_level = LogLevel.DEBUG
                 Log(transcode_log_level, transcode_log)
-                return True, False
+                return True
 
             else:
-                if cfg["flac_codec"] == "ffmpeg" and p.returncode == 255: # 255 seems to mean ffmpeg was terminated mid-run
-                    Path.unlink(entry.portable_path, missing_ok=True)
-                    return False, True
-                elif p.returncode < 0:
+                if p.returncode < 0:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
                                        f"{bcolors.WARNING}Transcode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
-                    return False, False
+                    return False
                 else:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
                                        f"{bcolors.WARNING}Transcode failed with return code {p.returncode}:\n" \
                                        f"{errs.removesuffix('\n')}{bcolors.ENDC}")
-                    return False, False
+                    return False
 
         except subprocess.TimeoutExpired:
             Log(LogLevel.WARN, f"Transcode subprocess for {transcode_log} timed out")
-            return False, False
+            return Falsealse
 
 def CreateOrUpdateCacheDirEntry(full_path) -> int:
     global cache
@@ -1190,7 +1089,7 @@ def ReencodeLibrary() -> None:
     global args
     global cache
     global cfg
-    global flac_codec_version
+    global flac_version
 
     start_time = time()
 
@@ -1212,7 +1111,7 @@ def ReencodeLibrary() -> None:
                 num_total += 1
                 if entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode or \
                    args.force or \
-                   (args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_codec_version):
+                   (args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_version):
                     future_to_entry[executor.submit(ReencodeFlac, entry)] = entry
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
@@ -1223,11 +1122,8 @@ def ReencodeLibrary() -> None:
             if future.cancelled():
                 num_interrupted += 1
             else:
-                success, interrupted = future.result()
-                if success:
+                if future.result():
                     num_reencoded += 1
-                elif interrupted:
-                    num_interrupted += 1
                 else:
                     num_failed += 1
                     failed_reencodes.append(future_to_entry[future].library_path)
@@ -1386,7 +1282,7 @@ def MirrorLibrary() -> None:
     global args
     global cache
     global cfg
-    global opus_codec_version
+    global opus_version
 
     start_time = time()
 
@@ -1453,7 +1349,7 @@ def MirrorLibrary() -> None:
         for entry in cache.flacs:
             if entry.fingerprint_on_last_transcode != entry.fingerprint_on_last_scan or \
                args.force or \
-               (args.transcode_on_update and entry.opus_codec_on_last_transcode != opus_codec_version):
+               (args.transcode_on_update and entry.opus_codec_on_last_transcode != opus_version):
                 future_to_entry[executor.submit(TranscodeFlac, entry)] = entry
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
@@ -1464,11 +1360,8 @@ def MirrorLibrary() -> None:
             if future.cancelled():
                 summary["num_flac_transcodes_interrupted"] += 1
             else:
-                success, interrupted = future.result()
-                if success:
+                if future.result():
                     summary["num_flac_transcodes_succeeded"] += 1
-                elif interrupted:
-                    summary["num_flac_transcodes_interrupted"] += 1
                 else:
                     summary["num_flac_transcodes_failed"] += 1
                     summary["failed_transcodes"].append(future_to_entry[future].library_path)
@@ -1665,6 +1558,7 @@ if __name__ == '__main__':
     test_specified = test or retest_on_update or test_force
 
     # ffmpeg has a bad habit of changing stdin attributes when it is terminated
+    # ffmpeg is dropped now, but no harm leaving this here in case it's still needed somehow
     original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
 
     flag = GracefulExiter()
@@ -1686,9 +1580,8 @@ if __name__ == '__main__':
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
 
-    flac_tester_version = ""
-    flac_codec_version = ""
-    opus_codec_version = ""
+    flac_version = ""
+    opus_version = ""
     CheckDependencies()
 
     ValidateDependencyConfigArgumentCombinations()

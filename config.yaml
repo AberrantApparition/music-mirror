@@ -14,12 +14,6 @@ portable_playlist_path: ""
 opus_bitrate: 96
 # Whether to allow modifications to the source music library
 allow_library_modification: False
-# The codec to use to reencode flacs. Supported codecs: flac, ffmpeg
-flac_codec: "flac"
-# The codec to use to transcode flacs to opus. Supported codecs: opusenc, ffmpeg_libopus, ffmpeg_opus
-opus_codec: "opusenc"
-# The codec to use to test flacs. Supported codecs: flac, ffprobe
-flac_tester: "flac"
 # Whether to use the SHA224 hash of a file as its fingerprint, as opposed to the file modification time. The hash takes longer to compute (modification time is basically instant to grab), but eliminates false positives
 use_hash_as_fingerprint: False
 # The number of worker threads to use when scanning, reencoding, or mirroring. Set to 0 to use 1 thread per available core
@@ -33,5 +27,5 @@ file_mirror_method: "copy"
 log_full_paths: True
 # Whether to ignore hidden files. The implementation here considers a non-hidden file inside a hidden directory to be hidden
 ignore_hidden: True
-# The amount of padding to set when re-encoding flacs, in bytes (only possible with flac codec, not ffmpeg)
+# The amount of padding to set when re-encoding flacs, in bytes
 padding_size: 4096
