@@ -1115,8 +1115,9 @@ def ReencodeLibrary() -> None:
         for entry in cache.flacs:
             if entry.present_in_last_scan:
                 num_total += 1
-                if entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode or \
-                   args.force or \
+                if args.force or \
+                   not entry.fingerprint_on_last_reencode or \
+                   (args.reencode_on_change and entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode) or \
                    (args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_version):
                     future_to_entry[executor.submit(ReencodeFlac, entry)] = entry
         for future in concurrent.futures.as_completed(future_to_entry):
@@ -1453,8 +1454,9 @@ def ParseArgs() -> argparse.Namespace:
     parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.0.0')
     subparsers = parser.add_subparsers(required=True)
 
-    parser_reencode = subparsers.add_parser('reencode', help='reencode flacs in library')
+    parser_reencode = subparsers.add_parser('reencode', help='reencode flacs in library (default behavior is to only reencode new flacs, options define additional cases to reencode)')
     parser_reencode.add_argument("-u", "--reencode-on-update", action="store_true", help="reencode flacs that have already been reencoded, if flac codec has been updated")
+    parser_reencode.add_argument("-c", "--reencode-on-change", action="store_true", help="reencode flacs that have already been reencoded, if file fingerprint has changed")
     parser_reencode.add_argument("-f", "--force", action="store_true", help="reencode every flac, mirror every file, even if fingerprint is unchanged")
     parser_reencode.add_argument("-d", "--dry-run", action="store_true", help="show what actions would be taken")
     parser_reencode.add_argument("-k", "--skip-scan", action="store_true", help="skip automatic scan before reencode (warning: ensure that library is unmodified since last scan)")
