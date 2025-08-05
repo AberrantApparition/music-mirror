@@ -24,7 +24,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - Will reencode on any change to flac file, even if a reencode is not necessary. This will be fixed at some point
 
 ## Requirements
-- Python 3.10 or higher
+- Python 3.10 or higher (last tested with 3.13.5)
 - `PyYaml`
 - To encode and test FLAC files: `flac`
 - To encode Opus: `opusenc`
