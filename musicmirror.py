@@ -113,10 +113,10 @@ def ValidateConfigDictKey(cfg, key_name, expected_type) -> bool:
         if isinstance(cfg[key_name], expected_type):
             return True
         else:
-            Log(LogLevel.WARNING, f"Config option {key_name} has unexpected type {type(cfg[key_name])}")
+            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(cfg[key_name])}")
             return False
     else:
-        Log(LogLevel.WARNING, f"Config option {key_name} not found")
+        Log(LogLevel.WARN, f"Config option {key_name} not found")
         return False
 
 def ValidateConfig(cfg) -> bool:
@@ -136,7 +136,9 @@ def ValidateConfig(cfg) -> bool:
     ok = ok and ValidateConfigDictKey(cfg, "file_mirror_method", str)
     ok = ok and ValidateConfigDictKey(cfg, "log_full_paths", bool)
     ok = ok and ValidateConfigDictKey(cfg, "ignore_hidden", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "padding_size", int)
+    ok = ok and ValidateConfigDictKey(cfg, "check_padding", bool)
+    ok = ok and ValidateConfigDictKey(cfg, "min_padding_size", int)
+    ok = ok and ValidateConfigDictKey(cfg, "max_padding_size", int)
 
     if not ok:
         return False
@@ -164,8 +166,16 @@ def ValidateConfig(cfg) -> bool:
         Log(LogLevel.WARN, f"Opus bitrate must be a positive integer")
         ok = False
 
-    if cfg["padding_size"] < 0:
+    if cfg["min_padding_size"] < 0:
         Log(LogLevel.WARN, f"Flac padding size cannot be negative")
+        ok = False
+
+    if cfg["max_padding_size"] < 0:
+        Log(LogLevel.WARN, f"Flac padding size cannot be negative")
+        ok = False
+
+    if cfg["min_padding_size"] > cfg["max_padding_size"]:
+        Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size")
         ok = False
 
     if cfg["num_threads"] > os.process_cpu_count():
@@ -255,6 +265,14 @@ def CheckDependencies() -> None:
         flac_error = str(exc)
 
     try:
+        metaflac_output = subprocess.run(['metaflac', '--version'], capture_output=True)
+        if metaflac_output.returncode < 0:
+            QuitWithoutSaving()
+        metaflac_version = metaflac_output.stdout.decode('utf-8')[:-1]
+    except subprocess.CalledProcessError as exc:
+        metaflac_error = str(exc)
+
+    try:
         opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
         if opus_output.returncode < 0:
             QuitWithoutSaving()
@@ -264,15 +282,18 @@ def CheckDependencies() -> None:
 
     if not flac_version:
         Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
-
+    if not metaflac_version:
+        Log(LogLevel.WARN, "metaflac unavailable - cannot adjust padding in FLACs: " + metaflac_error)
     if not opus_version:
         Log(LogLevel.WARN, "opus codec unavailable - cannot encode Opus files: " + opus_error)
 
-    Log(LogLevel.INFO, "Python version: " + str(sys.version))
+    Log(LogLevel.INFO, "Python version:   " + str(sys.version))
     if flac_version:
-        Log(LogLevel.INFO, "flac version:   " + flac_version)
+        Log(LogLevel.INFO, "flac version:     " + flac_version)
+    if metaflac_version:
+        Log(LogLevel.INFO, "metaflac version: " + metaflac_version)
     if opus_version:
-        Log(LogLevel.INFO, "Opus version:   " + opus_version)
+        Log(LogLevel.INFO, "Opus version:     " + opus_version)
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
     global args
@@ -493,6 +514,7 @@ class FlacEntry():
     fingerprint_on_last_scan: str
     present_in_last_scan: bool
     fingerprint_on_last_reencode: str
+    fingerprint_on_last_repad: str
     fingerprint_on_last_transcode: str
     fingerprint_on_last_test: str
     test_pass: bool
@@ -503,6 +525,7 @@ class FlacEntry():
     # Not read from or saved to cache
     library_path: str
     portable_path: str
+    quoted_path: str
     formatted_path: str
     formatted_portable_path: str
     present_in_current_scan: bool
@@ -515,6 +538,10 @@ class FlacEntry():
             # Entry created from cache
             self.path = saved_entry[0]
             self.library_path = os.path.join(cfg["library_path"], self.path)
+
+            # Add new fields in case user has a fingerprints.yaml without updated fields
+            saved_entry[1].setdefault("fingerprint_on_last_repad", '')
+
             for key, value in saved_entry[1].items():
                 setattr(self, key, value)
             self.present_in_current_scan = False
@@ -524,6 +551,7 @@ class FlacEntry():
             self.library_path = full_path
             self.fingerprint_on_last_scan = fingerprint
             self.fingerprint_on_last_reencode = ''
+            self.fingerprint_on_last_repad = ''
             self.fingerprint_on_last_transcode = ''
             self.fingerprint_on_last_test = ''
             self.flac_codec_on_last_test = ''
@@ -535,8 +563,10 @@ class FlacEntry():
         else:
             Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad flac init arguments")
 
+        self.quoted_path = quote(self.library_path)
+
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path, bcolors.OKGREEN)
+            self.formatted_path = AddColor(self.quoted_path, bcolors.OKGREEN)
         else:
             self.formatted_path = FormatPath(self.path, bcolors.OKGREEN)
 
@@ -556,6 +586,7 @@ class FlacEntry():
                 'fingerprint_on_last_scan': self.fingerprint_on_last_scan,
                 'present_in_last_scan': self.present_in_last_scan,
                 'fingerprint_on_last_reencode': self.fingerprint_on_last_reencode,
+                'fingerprint_on_last_repad': self.fingerprint_on_last_repad,
                 'fingerprint_on_last_transcode': self.fingerprint_on_last_transcode,
                 'fingerprint_on_last_test': self.fingerprint_on_last_test,
                 'test_pass': self.test_pass,
@@ -658,6 +689,10 @@ def FormatPath(path, color='') -> str:
     color_reset = bcolors.ENDC if color else ''
     return f'{color}{quote(path)}{color_reset}'
 
+def AddColor(text, color='') -> str:
+    color_reset = bcolors.ENDC if color else ''
+    return f'{color}{text}{color_reset}'
+
 def DetectPlaylist(file_path) -> bool:
     file_extension = file_path.split(".")[-1]
     return file_extension == "m3u" or file_extension == "m3u8"
@@ -735,7 +770,7 @@ def ReencodeFlac(entry) -> bool:
 
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
-    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
+    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["max_padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
@@ -747,6 +782,7 @@ def ReencodeFlac(entry) -> bool:
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_reencode = fingerprint
+                entry.fingerprint_on_last_repad = fingerprint
                 entry.flac_codec_on_last_reencode = flac_version
 
                 if cfg["log_level"] >= LogLevel.TRACE:
@@ -776,6 +812,126 @@ def ReencodeFlac(entry) -> bool:
             Path.unlink(tmp_path, missing_ok=True)
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False
+
+class RepadAction(Enum):
+    NONE           = 0
+    MERGE_AND_SORT = 1
+    RESIZE         = 2
+
+# Returns whether successful and the repad action to take
+def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
+    global cfg
+    global log_prefix_indent
+
+    repad_check_log = f"Padding check for {entry.formatted_path}"
+
+    metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
+
+    with subprocess.Popen(metaflac_args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+        try:
+            outs, errs = p.communicate(timeout=60)
+            if p.returncode == 0:
+                outlines = outs.splitlines()
+
+                padding_block_length_lines = [line for line in outlines if line.startswith('  length:')]
+                num_padding_blocks = len(padding_block_length_lines)
+                total_padding_size_bytes = 0
+                for line in padding_block_length_lines:
+                    total_padding_size_bytes += int(line.split(': ')[-1])
+
+                if total_padding_size_bytes > cfg["max_padding_size"] or total_padding_size_bytes < cfg["min_padding_size"]:
+                    Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
+                                        f"{log_prefix_indent}flac has {total_padding_size_bytes} bytes of padding")
+                    return True, RepadAction.RESIZE
+                elif num_padding_blocks > 1:
+                    Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
+                                        f"{log_prefix_indent}flac has {num_padding_blocks} padding blocks")
+                    return True, RepadAction.MERGE_AND_SORT
+                elif not '  is last: true' in outlines:
+                    Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
+                                        f"{log_prefix_indent}flac padding is not last block")
+                    return True, RepadAction.MERGE_AND_SORT
+                else:
+                    return True, RepadAction.NONE
+            else:
+                if p.returncode < 0:
+                    Log(LogLevel.WARN, f"{repad_check_log}\n" \
+                                       f"{bcolors.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                    return False, RepadAction.NONE
+                else:
+                    Log(LogLevel.WARN, f"{repad_check_log}\n" \
+                                       f"{bcolors.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                    return False, RepadAction.NONE
+
+        except subprocess.TimeoutExpired:
+            Log(LogLevel.WARN, f"metaflac padding check subprocess for {repad_check_log} timed out")
+            return False, RepadAction.NONE
+
+# Returns whether repad attempted and whether successful (either repad check or repad itself can fail)
+def RepadFlac(entry) -> Tuple[bool, bool]:
+    global cfg
+    global log_prefix_indent
+
+    repad_check_ok, repad_action = CheckIfRepadNecessary(entry)
+
+    use_shell = False
+
+    match repad_action:
+        case RepadAction.MERGE_AND_SORT:
+            metaflac_args = ['metaflac', '--sort-padding', entry.library_path]
+            repad_description = "sort and merge padding"
+        case RepadAction.RESIZE:
+            # metaflac does not allow --remove and --add-padding in the same command
+            metaflac_args = f"metaflac --remove --block-type=PADDING --dont-use-padding {entry.quoted_path}" \
+                            f"&&" \
+                            f"metaflac --add-padding={cfg["max_padding_size"]} {entry.quoted_path}"
+            repad_description = "resize padding"
+            use_shell = True
+        case RepadAction.NONE:
+            return False, repad_check_ok
+
+    repad_log = f"Repad {entry.formatted_path} ({repad_description})"
+
+    if args.dry_run:
+        Log(LogLevel.TRACE, f"Dry run: {repad_log}")
+        return True, False
+
+    with subprocess.Popen(metaflac_args, shell=use_shell, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+        try:
+            outs, errs = p.communicate(timeout=60)
+            if p.returncode == 0:
+                fingerprint = CalculateFingerprint(entry.library_path)
+                entry.fingerprint_on_last_scan = fingerprint
+                entry.fingerprint_on_last_test = fingerprint
+                entry.fingerprint_on_last_repad = fingerprint
+                # Notice that fingerprint_on_last_reencode is not updated. This could cause a reencode if the user adds a -c flag, but no easy way to avoid that
+
+                if cfg["log_level"] >= LogLevel.TRACE:
+                    repad_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
+                if errs:
+                    repad_log_level = LogLevel.WARN
+                    repad_log += f"\n{bcolors.WARNING}FLAC repad passed with warnings:" \
+                                 f"\n{errs.removesuffix('\n')}{bcolors.ENDC}"
+                else:
+                    repad_log_level = LogLevel.DEBUG
+                Log(repad_log_level, repad_log)
+                return True, not errs
+
+            else:
+                if p.returncode < 0:
+                    Log(LogLevel.WARN, f"{repad_log}\n" \
+                                       f"{bcolors.WARNING}FLAC repad terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                    return True, False
+                else:
+                    Log(LogLevel.WARN, f"{repad_log}\n" \
+                                       f"{bcolors.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                    return True, False
+
+        except subprocess.TimeoutExpired:
+            Log(LogLevel.WARN, f"Repad subprocess for {repad_log} timed out")
+            return True, False
 
 # Returns whether successful
 def TranscodeFlac(entry) -> bool:
@@ -820,7 +976,7 @@ def TranscodeFlac(entry) -> bool:
 
         except subprocess.TimeoutExpired:
             Log(LogLevel.WARN, f"Transcode subprocess for {transcode_log} timed out")
-            return Falsealse
+            return False
 
 def CreateOrUpdateCacheDirEntry(full_path) -> int:
     global cache
@@ -1108,7 +1264,6 @@ def ReencodeLibrary() -> None:
 
     num_reencoded = 0
     num_failed = 0
-    num_skipped = 0
     num_interrupted = 0
     num_total = 0
 
@@ -1153,7 +1308,6 @@ def ReencodeLibrary() -> None:
         interrupted_summary = ""
     Log(summary_log_level, f"{reencode_result}\n" \
                            f"{num_total} total FLACs\n" \
-                           f"{num_skipped} skipped\n" \
                            f"{num_reencoded} reencoded" + \
                            reencode_fail + \
                            interrupted_summary)
@@ -1164,6 +1318,74 @@ def ReencodeLibrary() -> None:
     flag.SaveAndQuitIfSignalled()
 
     TimeCommand(start_time, "Reencoding library", LogLevel.INFO)
+
+def RepadLibrary() -> None:
+    global args
+    global cache
+    global cfg
+
+    start_time = time()
+
+    Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
+
+    num_repadded = 0
+    num_padding_ok = 0
+    num_failed = 0
+    num_interrupted = 0
+    num_total = 0
+
+    failed_repads = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
+        early_exit = False
+        future_to_entry = {}
+        for entry in cache.flacs:
+            if entry.present_in_last_scan:
+                num_total += 1
+                if args.force or \
+                   entry.fingerprint_on_last_scan != entry.fingerprint_on_last_repad:
+                    future_to_entry[executor.submit(RepadFlac, entry)] = entry
+        for future in concurrent.futures.as_completed(future_to_entry):
+            if flag.Exit():
+                executor.shutdown(wait=True, cancel_futures=True)
+                early_exit = True
+                break
+        for future in future_to_entry:
+            if future.cancelled():
+                num_interrupted += 1
+            else:
+                repad_attempted, command_successful = future.result()
+                if repad_attempted and command_successful:
+                    num_repadded += 1
+                elif not repad_attempted and command_successful:
+                    num_padding_ok += 1
+                else:
+                    num_failed += 1
+                    failed_repads.append(future_to_entry[future].library_path)
+
+    repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
+    if num_failed > 0:
+        summary_log_level = LogLevel.WARN
+        repad_fail = f"\n{bcolors.WARNING}{num_failed} not repadded due to errors{bcolors.ENDC}"
+    else:
+        summary_log_level = LogLevel.INFO
+        repad_fail = ""
+    if early_exit:
+        interrupted_summary = f"\n{num_interrupted} interrupted"
+    else:
+        interrupted_summary = ""
+    Log(summary_log_level, f"{repad_result}\n" \
+                           f"{num_total} total FLACs\n" \
+                           f"{num_repadded} repadded" + \
+                           repad_fail + \
+                           interrupted_summary)
+
+    if failed_repads:
+        PrintFailureList('Failed repads:', failed_repads)
+
+    flag.SaveAndQuitIfSignalled()
+
+    TimeCommand(start_time, "Repadding library", LogLevel.INFO)
 
 def RemoveOrphanedFilesFromPortable() -> None:
     global args
@@ -1492,12 +1714,15 @@ def ParseArgs() -> argparse.Namespace:
 
 def reencode_library() -> None:
     global args
+    global cfg
 
     ReadCache()
     if not args.skip_scan:
         ScanLibrary()
         CheckForOrphanedCache()
     ReencodeLibrary()
+    if cfg["check_padding"]:
+        RepadLibrary()
     WriteCache()
 
 def mirror_library() -> None:
