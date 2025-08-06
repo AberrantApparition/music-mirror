@@ -27,6 +27,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - Python 3.10 or higher (last tested with 3.13.5)
 - `PyYaml`
 - To encode and test FLAC files: `flac`
+- To adjust padding in FLAC files: `metaflac`
 - To encode Opus: `opusenc`
 
 ## Setup
