@@ -821,7 +821,7 @@ def CreateOrUpdateCacheDirEntry(full_path) -> int:
     global cache
     global cfg
 
-    relative_path = full_path[(len(cfg["library_path"])+1):]
+    relative_path = full_path[len(cfg["library_path"]):]
 
     is_new_entry = True
     for entry in cache.dirs:
@@ -849,7 +849,7 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
     global log_prefix_indent
 
     fingerprint = CalculateFingerprint(full_path)
-    relative_path = full_path[(len(cfg["library_path"])+1):]
+    relative_path = full_path[len(cfg["library_path"]):]
 
     is_new_entry = True
     for entry in cache.files:
@@ -886,7 +886,7 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
     global log_prefix_indent
 
     fingerprint = CalculateFingerprint(full_path)
-    relative_path = full_path[(len(cfg["library_path"])+1):]
+    relative_path = full_path[len(cfg["library_path"]):]
 
     is_new_entry = True
     is_modified = False
@@ -1517,7 +1517,7 @@ def convert_playlists() -> None:
     for root, dirs, files in os.walk(cfg["library_playlist_path"]):
         for file in files:
             file_path = os.path.join(root, file)
-            relative_path = file_path[(len(cfg["library_playlist_path"])+1):]
+            relative_path = file_path[len(cfg["library_playlist_path"]):]
             formatted_path = FormatPath(relative_path, bcolors.OKGREEN)
             if DetectPlaylist(file_path):
                 output_path = os.path.join(cfg["portable_playlist_path"], relative_path)
