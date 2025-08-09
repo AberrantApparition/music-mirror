@@ -517,6 +517,8 @@ class FlacEntry():
     fingerprint_on_last_repad: str
     fingerprint_on_last_transcode: str
     fingerprint_on_last_test: str
+    reencode_ignore_last_fingerprint_change: bool
+    transcode_ignore_last_fingerprint_change: bool
     test_pass: bool
     flac_codec_on_last_test: str
     flac_codec_on_last_reencode: str
@@ -541,6 +543,8 @@ class FlacEntry():
 
             # Add new fields in case user has a fingerprints.yaml without updated fields
             saved_entry[1].setdefault("fingerprint_on_last_repad", '')
+            saved_entry[1].setdefault("reencode_ignore_last_fingerprint_change", False)
+            saved_entry[1].setdefault("transcode_ignore_last_fingerprint_change", False)
 
             for key, value in saved_entry[1].items():
                 setattr(self, key, value)
@@ -554,6 +558,8 @@ class FlacEntry():
             self.fingerprint_on_last_repad = ''
             self.fingerprint_on_last_transcode = ''
             self.fingerprint_on_last_test = ''
+            self.reencode_ignore_last_fingerprint_change = False
+            self.transcode_ignore_last_fingerprint_change = False
             self.flac_codec_on_last_test = ''
             self.flac_codec_on_last_reencode = ''
             self.opus_codec_on_last_transcode = ''
@@ -589,6 +595,8 @@ class FlacEntry():
                 'fingerprint_on_last_repad': self.fingerprint_on_last_repad,
                 'fingerprint_on_last_transcode': self.fingerprint_on_last_transcode,
                 'fingerprint_on_last_test': self.fingerprint_on_last_test,
+                'reencode_ignore_last_fingerprint_change': self.reencode_ignore_last_fingerprint_change,
+                'transcode_ignore_last_fingerprint_change': self.transcode_ignore_last_fingerprint_change,
                 'test_pass': self.test_pass,
                 'flac_codec_on_last_test': self.flac_codec_on_last_test,
                 'flac_codec_on_last_reencode': self.flac_codec_on_last_reencode,
@@ -779,6 +787,9 @@ def ReencodeFlac(entry) -> bool:
                 shutil.move(tmp_path, entry.library_path)
 
                 fingerprint = CalculateFingerprint(entry.library_path)
+                # Do not trigger an unnecessary transcode in a future run due to this reencode
+                if entry.fingerprint_on_last_scan == entry.fingerprint_on_last_transcode:
+                    entry.transcode_ignore_last_fingerprint_change = True
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_reencode = fingerprint
@@ -902,10 +913,14 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
                 fingerprint = CalculateFingerprint(entry.library_path)
+                # Do not trigger an unnecessary reencode or transcode in a future run due to this repad
+                if entry.fingerprint_on_last_scan == entry.fingerprint_on_last_reencode:
+                    entry.reencode_ignore_last_fingerprint_change = True
+                if entry.fingerprint_on_last_scan == entry.fingerprint_on_last_transcode:
+                    entry.reencode_ignore_last_fingerprint_change = True
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_repad = fingerprint
-                # Notice that fingerprint_on_last_reencode is not updated. This could cause a reencode if the user adds a -c flag, but no easy way to avoid that
 
                 if cfg["log_level"] >= LogLevel.TRACE:
                     repad_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
@@ -1016,13 +1031,13 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
     for entry in cache.files:
         if entry.path == relative_path:
             if fingerprint != entry.fingerprint_on_last_scan:
+                entry.fingerprint_on_last_scan = fingerprint
                 entry_status = "Modified"
                 entry_log_level = LogLevel.DEBUG
             else:
                 entry_status = "Unchanged"
                 entry_log_level = LogLevel.TRACE
             is_new_entry = False
-            entry.fingerprint_on_last_scan = fingerprint
             entry.present_in_current_scan = True
             entry.present_in_last_scan = True
             break
@@ -1054,6 +1069,9 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
     for entry in cache.flacs:
         if entry.path == relative_path:
             if fingerprint != entry.fingerprint_on_last_scan:
+                entry.fingerprint_on_last_scan = fingerprint
+                entry.reencode_ignore_last_fingerprint_change = False
+                entry.transcode_ignore_last_fingerprint_change = False
                 is_modified = True
                 entry_status = "Modified"
                 entry_log_level = LogLevel.DEBUG
@@ -1062,7 +1080,6 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
                 entry_log_level = LogLevel.TRACE
             entry.present_in_current_scan = True
             entry.present_in_last_scan = True
-            entry.fingerprint_on_last_scan = fingerprint
             is_new_entry = False
             break
 
@@ -1277,7 +1294,9 @@ def ReencodeLibrary() -> None:
                 num_total += 1
                 if args.force or \
                    not entry.fingerprint_on_last_reencode or \
-                   (args.reencode_on_change and entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode) or \
+                   (args.reencode_on_change and \
+                    entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode and \
+                    not entry.reencode_ignore_last_fingerprint_change) or \
                    (args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_version):
                     future_to_entry[executor.submit(ReencodeFlac, entry)] = entry
         for future in concurrent.futures.as_completed(future_to_entry):
@@ -1581,7 +1600,8 @@ def MirrorLibrary() -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
         future_to_entry = {}
         for entry in cache.flacs:
-            if entry.fingerprint_on_last_transcode != entry.fingerprint_on_last_scan or \
+            if ((entry.fingerprint_on_last_transcode != entry.fingerprint_on_last_scan) and \
+                not entry.transcode_ignore_last_fingerprint_change) or \
                args.force or \
                (args.transcode_on_update and entry.opus_codec_on_last_transcode != opus_version):
                 future_to_entry[executor.submit(TranscodeFlac, entry)] = entry
