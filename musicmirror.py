@@ -444,8 +444,8 @@ class DirEntry():
         {
             self.path: \
             {
-                'present_in_last_scan': self.present_in_last_scan,
-                'mirrored': self.mirrored
+                'mirrored': self.mirrored,
+                'present_in_last_scan': self.present_in_last_scan
             }
         }
 
@@ -502,8 +502,8 @@ class FileEntry():
         {
             self.path: \
             {
-                'fingerprint_on_last_scan': self.fingerprint_on_last_scan,
                 'fingerprint_on_last_mirror': self.fingerprint_on_last_mirror,
+                'fingerprint_on_last_scan': self.fingerprint_on_last_scan,
                 'present_in_last_scan': self.present_in_last_scan
             }
         }
@@ -589,18 +589,18 @@ class FlacEntry():
         {
             self.path: \
             {
-                'fingerprint_on_last_scan': self.fingerprint_on_last_scan,
-                'present_in_last_scan': self.present_in_last_scan,
                 'fingerprint_on_last_reencode': self.fingerprint_on_last_reencode,
                 'fingerprint_on_last_repad': self.fingerprint_on_last_repad,
-                'fingerprint_on_last_transcode': self.fingerprint_on_last_transcode,
+                'fingerprint_on_last_scan': self.fingerprint_on_last_scan,
                 'fingerprint_on_last_test': self.fingerprint_on_last_test,
-                'reencode_ignore_last_fingerprint_change': self.reencode_ignore_last_fingerprint_change,
-                'transcode_ignore_last_fingerprint_change': self.transcode_ignore_last_fingerprint_change,
-                'test_pass': self.test_pass,
-                'flac_codec_on_last_test': self.flac_codec_on_last_test,
+                'fingerprint_on_last_transcode': self.fingerprint_on_last_transcode,
                 'flac_codec_on_last_reencode': self.flac_codec_on_last_reencode,
+                'flac_codec_on_last_test': self.flac_codec_on_last_test,
                 'opus_codec_on_last_transcode': self.opus_codec_on_last_transcode,
+                'present_in_last_scan': self.present_in_last_scan,
+                'reencode_ignore_last_fingerprint_change': self.reencode_ignore_last_fingerprint_change,
+                'test_pass': self.test_pass,
+                'transcode_ignore_last_fingerprint_change': self.transcode_ignore_last_fingerprint_change
             }
         }
 
