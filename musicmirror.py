@@ -235,6 +235,11 @@ def ConvertFlacVersionToVendorString(version) -> str:
     version_number = version.split(' ')[1]
     return f"reference libFLAC {version_number}"
 
+def AppendPathSeparator(path) -> str:
+    if not path.endswith(os.sep):
+        path += os.sep
+    return path
+
 def CheckDependencies() -> None:
     global cfg
     global flac_version
@@ -302,16 +307,16 @@ def ValidateConfigPaths(cfg) -> bool:
     ok = True
 
     cfg["library_status_path"] = os.path.expanduser(cfg["library_status_path"])
-    cfg["library_path"] = os.path.expanduser(cfg["library_path"])
-    cfg["output_library_path"] = os.path.expanduser(cfg["output_library_path"])
-    cfg["library_playlist_path"] = os.path.expanduser(cfg["library_playlist_path"])
-    cfg["portable_playlist_path"] = os.path.expanduser(cfg["portable_playlist_path"])
+    cfg["library_path"] = AppendPathSeparator(os.path.expanduser(cfg["library_path"]))
+    cfg["output_library_path"] = AppendPathSeparator(os.path.expanduser(cfg["output_library_path"]))
+    cfg["library_playlist_path"] = AppendPathSeparator(os.path.expanduser(cfg["library_playlist_path"]))
+    cfg["portable_playlist_path"] = AppendPathSeparator(os.path.expanduser(cfg["portable_playlist_path"]))
 
     cfg["formatted_library_status_path"] = FormatPath(cfg["library_status_path"])
-    cfg["formatted_library_path"] = FormatPath(cfg["library_path"] + os.sep, bcolors.OKGREEN)
-    cfg["formatted_output_library_path"] = FormatPath(cfg["output_library_path"] + os.sep, bcolors.OKBLUE)
-    cfg["formatted_library_playlist_path"] = FormatPath(cfg["library_playlist_path"] + os.sep, bcolors.OKGREEN)
-    cfg["formatted_portable_playlist_path"] = FormatPath(cfg["portable_playlist_path"] + os.sep, bcolors.OKBLUE)
+    cfg["formatted_library_path"] = FormatPath(cfg["library_path"], bcolors.OKGREEN)
+    cfg["formatted_output_library_path"] = FormatPath(cfg["output_library_path"], bcolors.OKBLUE)
+    cfg["formatted_library_playlist_path"] = FormatPath(cfg["library_playlist_path"], bcolors.OKGREEN)
+    cfg["formatted_portable_playlist_path"] = FormatPath(cfg["portable_playlist_path"], bcolors.OKBLUE)
 
     library_status_path_obj = Path(cfg["library_status_path"])
     library_path_obj = Path(cfg["library_path"])
@@ -386,7 +391,7 @@ class DirEntry():
 
         if saved_entry is not None:
             # Entry created from cache
-            self.path = saved_entry[0]
+            self.path = AppendPathSeparator(saved_entry[0])
             self.library_path = os.path.join(cfg["library_path"], self.path)
             for key, value in saved_entry[1].items():
                 setattr(self, key, value)
@@ -402,16 +407,16 @@ class DirEntry():
             Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad dir init arguments")
 
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path + os.sep, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.library_path, bcolors.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path + os.sep, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, bcolors.OKGREEN)
 
         if args.func == mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path + os.sep, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, bcolors.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(self.path + os.sep, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.path, bcolors.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -821,7 +826,7 @@ def CreateOrUpdateCacheDirEntry(full_path) -> int:
     global cache
     global cfg
 
-    relative_path = full_path[len(cfg["library_path"]):]
+    relative_path = AppendPathSeparator(full_path[len(cfg["library_path"]):])
 
     is_new_entry = True
     for entry in cache.dirs:
