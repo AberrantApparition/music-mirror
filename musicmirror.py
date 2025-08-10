@@ -919,7 +919,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                 if entry.fingerprint_on_last_scan == entry.fingerprint_on_last_reencode:
                     entry.reencode_ignore_last_fingerprint_change = True
                 if entry.fingerprint_on_last_scan == entry.fingerprint_on_last_transcode:
-                    entry.reencode_ignore_last_fingerprint_change = True
+                    entry.transcode_ignore_last_fingerprint_change = True
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.fingerprint_on_last_test = fingerprint
                 entry.fingerprint_on_last_repad = fingerprint
