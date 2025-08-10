@@ -829,7 +829,7 @@ class RepadAction(Enum):
     MERGE_AND_SORT = 1
     RESIZE         = 2
 
-# Returns whether successful and the repad action to take
+# Returns whether successful and the repad action to take. If not successful, action is always NONE
 def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
     global cfg
     global log_prefix_indent
@@ -900,6 +900,8 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             repad_description = "resize padding"
             use_shell = True
         case RepadAction.NONE:
+            if repad_check_ok:
+                entry.fingerprint_on_last_repad = entry.fingerprint_on_last_scan
             return False, repad_check_ok
 
     repad_log = f"Repad {entry.formatted_path} ({repad_description})"
