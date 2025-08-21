@@ -11,6 +11,7 @@ from itertools import chain
 import os
 from pathlib import Path
 from platform import system
+from re import sub, MULTILINE
 from shlex import quote
 import shutil
 import signal
@@ -716,7 +717,7 @@ def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
                 Log(LogLevel.TRACE, f"Could not decode playlist {playlist_convert_str} with encoding {encoding}")
                 continue
         if data:
-            updated_string = data.replace('.flac\n', '.opus\n')
+            updated_string = sub(r".flac$", ".opus", data, flags=MULTILINE)
         else:
             Log(LogLevel.WARN, f"Could not decode playlist {playlist_convert_str}")
             return False
