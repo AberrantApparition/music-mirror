@@ -1834,7 +1834,10 @@ if __name__ == '__main__':
         Log(LogLevel.ERROR, f"Error(s) found in {config_file}")
 
     if cfg["num_threads"] == 0:
-        cfg["num_threads"] = os.process_cpu_count()
+        if hasattr(os, 'process_cpu_count') and callable(getattr(os, 'process_cpu_count')):
+            cfg["num_threads"] = os.process_cpu_count()
+        else:
+            cfg["num_threads"] = os.cpu_count()
     Log(LogLevel.INFO, f"Using {cfg["num_threads"]} worker threads")
 
     if args.func == convert_playlists:
