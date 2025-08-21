@@ -707,11 +707,23 @@ def DetectPlaylist(file_path) -> bool:
 
 def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
     try:
-        with open(file_path, 'r') as in_playlist:
-            data = in_playlist.read().replace('.flac\n', '.opus\n')
+        possible_encodings = ["utf-8", "cp1252", "latin1"]
+        for encoding in possible_encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as in_playlist:
+                    data = in_playlist.read()
+            except UnicodeDecodeError:
+                Log(LogLevel.TRACE, f"Could not decode playlist {playlist_convert_str} with encoding {encoding}")
+                continue
+        if data:
+            updated_string = data.replace('.flac\n', '.opus\n')
+        else:
+            Log(LogLevel.WARN, f"Could not decode playlist {playlist_convert_str}")
+            return False
+
         output_file = Path(output_path)
         output_file.parent.mkdir(exist_ok=True, parents=True)
-        output_file.write_text(data)
+        output_file.write_text(updated_string)
         return True
     except OSError as exc:
         Log(LogLevel.WARN, f"Error when converting playlist {playlist_convert_str}: {exc}")
