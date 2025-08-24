@@ -33,3 +33,5 @@ check_padding: True
 min_padding_size: 512
 # The maximum amount of padding to accept in flacs, in bytes. Also used to set the amount of padding when re-encoding flacs
 max_padding_size: 4096
+# The amount of padding to set in flacs, in bytes, either when re-encoding or when adjusting padding without re-encoding
+target_padding_size: 2048

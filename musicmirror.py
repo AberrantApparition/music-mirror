@@ -140,6 +140,7 @@ def ValidateConfig(cfg) -> bool:
     ok = ok and ValidateConfigDictKey(cfg, "check_padding", bool)
     ok = ok and ValidateConfigDictKey(cfg, "min_padding_size", int)
     ok = ok and ValidateConfigDictKey(cfg, "max_padding_size", int)
+    ok = ok and ValidateConfigDictKey(cfg, "target_padding_size", int)
 
     if not ok:
         return False
@@ -168,15 +169,27 @@ def ValidateConfig(cfg) -> bool:
         ok = False
 
     if cfg["min_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Flac padding size cannot be negative")
+        Log(LogLevel.WARN, f"Min flac padding size cannot be negative")
         ok = False
 
     if cfg["max_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Flac padding size cannot be negative")
+        Log(LogLevel.WARN, f"Max flac padding size cannot be negative")
+        ok = False
+
+    if cfg["target_padding_size"] < 0:
+        Log(LogLevel.WARN, f"Target flac padding size cannot be negative")
+        ok = False
+
+    if cfg["min_padding_size"] > cfg["target_padding_size"]:
+        Log(LogLevel.WARN, f"min_padding_size cannot be greater than target_padding_size")
         ok = False
 
     if cfg["min_padding_size"] > cfg["max_padding_size"]:
         Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size")
+        ok = False
+
+    if cfg["target_padding_size"] > cfg["max_padding_size"]:
+        Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size")
         ok = False
 
     if cfg["num_threads"] > os.process_cpu_count():
@@ -791,7 +804,7 @@ def ReencodeFlac(entry) -> bool:
 
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
-    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["max_padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
+    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["target_padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
@@ -1411,6 +1424,7 @@ def RepadLibrary() -> None:
         interrupted_summary = ""
     Log(summary_log_level, f"{repad_result}\n" \
                            f"{num_total} total FLACs\n" \
+                           f"{num_padding_ok} had acceptable padding\n" + \
                            f"{num_repadded} repadded" + \
                            repad_fail + \
                            interrupted_summary)
