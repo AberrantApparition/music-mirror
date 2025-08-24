@@ -30,6 +30,6 @@ ignore_hidden: True
 # Whether to check for and fix flac padding. If enabled, the script will move all padding blocks to the end of the metadata and merge them. It will resize padding if it is too large or small
 check_padding: True
 # The minimum amount of padding to accept in flacs, in bytes. Recommended to keep lower than max_padding_size, to stop spurious rewrites of padding if metadata changes reduce available padding
-min_padding_size: 2048
+min_padding_size: 512
 # The maximum amount of padding to accept in flacs, in bytes. Also used to set the amount of padding when re-encoding flacs
 max_padding_size: 4096
