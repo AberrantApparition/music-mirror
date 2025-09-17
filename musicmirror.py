@@ -1457,8 +1457,11 @@ def RemoveOrphanedFilesFromPortable() -> None:
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
             else:
-                Log(LogLevel.TRACE, deletion_str)
-                shutil.rmtree(entry.portable_path)
+                if (os.path.isdir(entry.portable_path)):
+                    shutil.rmtree(entry.portable_path)
+                    Log(LogLevel.TRACE, deletion_str)
+                else:
+                    Log(LogLevel.INFO, f"Directory {entry.formatted_portable_path} was removed outside of script")
                 cache.dirs.pop(index)
             num_dirs_removed += 1
         flag.SaveAndQuitIfSignalled()
@@ -1792,7 +1795,10 @@ def convert_playlists() -> None:
 
     Log(LogLevel.INFO, f"Converting playlists in {cfg["formatted_library_playlist_path"]}")
 
-    shutil.rmtree(cfg["portable_playlist_path"])
+    # Simpler to recreate all playlists each run; surely no one has enough playlists that this takes time
+    if (os.path.isdir(cfg["portable_playlist_path"])):
+        shutil.rmtree(cfg["portable_playlist_path"])
+
     os.makedirs(cfg["portable_playlist_path"])
 
     for root, dirs, files in os.walk(cfg["library_playlist_path"]):
