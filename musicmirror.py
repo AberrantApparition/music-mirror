@@ -1436,6 +1436,10 @@ def RepadLibrary() -> None:
 
     TimeCommand(start_time, "Repadding library", LogLevel.INFO)
 
+def RemoveElementsFromSequence(sequence, element_indexes) -> None:
+    for index in element_indexes:
+        sequence.pop(index)
+
 def RemoveOrphanedFilesFromPortable() -> None:
     global args
     global cache
@@ -1451,6 +1455,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     # TODO worth it to remove orphaned file/flac entries from cache as they are deleted by rmtree here?
 
+    dir_removal_list = []
     for index, entry in enumerate(cache.dirs):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1462,10 +1467,14 @@ def RemoveOrphanedFilesFromPortable() -> None:
                     Log(LogLevel.TRACE, deletion_str)
                 else:
                     Log(LogLevel.INFO, f"Directory {entry.formatted_portable_path} was removed outside of script")
-                cache.dirs.pop(index)
+                dir_removal_list.append(index)
             num_dirs_removed += 1
-        flag.SaveAndQuitIfSignalled()
+        if flag.Exit():
+            RemoveElementsFromSequence(cache.dirs, dir_removal_list)
+            flag.SaveAndQuit()
+    RemoveElementsFromSequence(cache.dirs, dir_removal_list)
 
+    file_removal_list = []
     for index, entry in enumerate(cache.files):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1474,10 +1483,14 @@ def RemoveOrphanedFilesFromPortable() -> None:
             else:
                 Log(LogLevel.TRACE, deletion_str)
                 Path.unlink(entry.portable_path, missing_ok=True)
-                cache.files.pop(index)
+                file_removal_list.append(index)
             num_files_removed += 1
-        flag.SaveAndQuitIfSignalled()
+        if flag.Exit():
+            RemoveElementsFromSequence(cache.dirs, file_removal_list)
+            flag.SaveAndQuit()
+    RemoveElementsFromSequence(cache.files, file_removal_list)
 
+    flac_removal_list = []
     for index, entry in enumerate(cache.flacs):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1486,9 +1499,12 @@ def RemoveOrphanedFilesFromPortable() -> None:
             else:
                 Log(LogLevel.TRACE, deletion_str)
                 Path.unlink(entry.portable_path, missing_ok=True)
-                cache.flacs.pop(index)
+                flac_removal_list.append(index)
             num_transcodes_removed += 1
-        flag.SaveAndQuitIfSignalled()
+        if flag.Exit():
+            RemoveElementsFromSequence(cache.dirs, flac_removal_list)
+            flag.SaveAndQuit()
+    RemoveElementsFromSequence(cache.flacs, flac_removal_list)
 
     Log(LogLevel.INFO, f"Orphaned file deletion complete:\n" \
                        f"{num_dirs_removed} dirs deleted\n" \
