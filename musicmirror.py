@@ -1168,7 +1168,7 @@ def IsHiddenFile(path) -> bool:
 
 def IsHiddenFileOrPath(full_path) -> bool:
     # Treat an unhidden file inside a hidden directory as hidden also. Loop over all parent directories
-    path = full_path
+    path = os.path.abspath(full_path)
     while path and path != "/":
         if IsHiddenFile(path):
             return True
