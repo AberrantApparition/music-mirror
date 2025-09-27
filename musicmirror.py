@@ -1437,6 +1437,8 @@ def RepadLibrary() -> None:
     TimeCommand(start_time, "Repadding library", LogLevel.INFO)
 
 def RemoveElementsFromSequence(sequence, element_indexes) -> None:
+    # Remove in reverse order to avoid decrementing element indices
+    element_indexes.sort(reverse=True)
     for index in element_indexes:
         sequence.pop(index)
 
@@ -1466,7 +1468,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
                     shutil.rmtree(entry.portable_path)
                     Log(LogLevel.TRACE, deletion_str)
                 else:
-                    Log(LogLevel.INFO, f"Directory {entry.formatted_portable_path} was removed outside of script")
+                    Log(LogLevel.DEBUG, f"Directory was removed outside of script: {entry.formatted_portable_path}")
                 dir_removal_list.append(index)
             num_dirs_removed += 1
         if flag.Exit():
