@@ -327,17 +327,17 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     if test_specified and not flac_version:
         Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
-    if not cfg["allow_library_modification"] and args.func == reencode_library:
+    if not cfg["allow_library_modification"] and args.func is reencode_library:
         Log(LogLevel.ERROR, "Config setting 'allow_library_modification' is disabled. Enable to allow reencoding of library")
 
-    if not flac_version and args.func == reencode_library:
+    if not flac_version and args.func is reencode_library:
         Log(LogLevel.ERROR, "Cannot reencode library without a FLAC codec available")
 
     # TODO is this true?
-    if not flac_version and args.func == mirror_library:
+    if not flac_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
 
-    if not opus_version and args.func == mirror_library:
+    if not opus_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
@@ -388,7 +388,7 @@ def ValidateConfigPaths(cfg) -> bool:
         Log(LogLevel.WARN, f"Library path {cfg["formatted_library_path"]} is inside output library path {cfg["formatted_output_library_path"]}")
         ok = False
 
-    if args.func == convert_playlists:
+    if args.func is convert_playlists:
         if not library_playlist_path_obj.is_dir():
             Log(LogLevel.WARN, f"Library playlist path {cfg["formatted_library_playlist_path"]} does not exist or is not a directory")
             ok = False
@@ -454,7 +454,7 @@ class DirEntry():
         else:
             self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
-        if args.func == mirror_library:
+        if args.func is mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
                 self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
@@ -512,7 +512,7 @@ class FileEntry():
         else:
             self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
-        if args.func == mirror_library:
+        if args.func is mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
                 self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
@@ -598,7 +598,7 @@ class FlacEntry():
         else:
             self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
-        if args.func == mirror_library:
+        if args.func is mirror_library:
             relative_portable_path = self.path[:-5] + ".opus"
             self.portable_path = os.path.join(cfg["output_library_path"], relative_portable_path)
             if cfg["log_full_paths"]:
@@ -1298,7 +1298,7 @@ def CheckForOrphanedCache() -> None:
                            f"{num_orphaned_dirs} dirs\n" \
                            f"{num_orphaned_files} files\n" \
                            f"{num_orphaned_flacs} flacs")
-        if args.func == mirror_library:
+        if args.func is mirror_library:
             Log(LogLevel.INFO, "Orphaned entries and the mirrored files they point to will be removed in the upcoming mirror")
         else:
             Log(LogLevel.INFO, "Orphaned entries and the mirrored files they point to will be removed in the next mirror command")
@@ -1899,7 +1899,7 @@ if __name__ == '__main__':
             cfg["num_threads"] = os.cpu_count()
     Log(LogLevel.INFO, f"Using {cfg["num_threads"]} worker threads")
 
-    if args.func == convert_playlists:
+    if args.func is convert_playlists:
         os.makedirs(cfg["portable_playlist_path"], exist_ok=True)
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
