@@ -159,19 +159,20 @@ def ValidateConfig(config) -> bool:
 
     ok = ValidateConfigPaths(config)
 
-    if config["log_level"] == "error":
-        config["log_level"] = LogLevel.ERROR
-    elif config["log_level"] == "warn":
-        config["log_level"] = LogLevel.WARN
-    elif config["log_level"] == "info":
-        config["log_level"] = LogLevel.INFO
-    elif config["log_level"] == "debug":
-        config["log_level"] = LogLevel.DEBUG
-    elif config["log_level"] == "trace":
-        config["log_level"] = LogLevel.TRACE
-    else:
-        Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
-        ok = False
+    match config["log_level"]:
+        case "error":
+            config["log_level"] = LogLevel.ERROR
+        case "warn":
+            config["log_level"] = LogLevel.WARN
+        case "info":
+            config["log_level"] = LogLevel.INFO
+        case "debug":
+            config["log_level"] = LogLevel.DEBUG
+        case "trace":
+            config["log_level"] = LogLevel.TRACE
+        case _:
+            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
+            ok = False
     if ok:
         Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
 
@@ -354,7 +355,7 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
        os.stat(cfg["library_path"]).st_dev != os.stat(cfg["output_library_path"]).st_dev:
         Log(LogLevel.ERROR, "To use hard links the main library and portable library must reside on the same filesystem")
 
-def ValidateConfigPaths(config) -> bool:
+def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
 
     ok = True
 
