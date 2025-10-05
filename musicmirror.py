@@ -78,7 +78,7 @@ def Log(level, log) -> None:
     global thread_info
 
     exit_early = False
-    if level <= cfg["log_level"]:
+    if level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
 
         if not hasattr(thread_info, 'name'):
@@ -99,7 +99,7 @@ def Log(level, log) -> None:
             case _:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
-        print_lock.acquire()
+        print_lock.acquire() # pylint: disable=possibly-used-before-assignment
         print(full_log)
         print_lock.release()
 
@@ -219,7 +219,7 @@ def ValidateConfig(cfg) -> bool:
 def RestoreStdinAttr() -> None:
     global original_stdin_attr
 
-    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr)
+    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr) # pylint: disable=possibly-used-before-assignment
 
 def SaveAndQuit(exit_arg=None) -> None:
     WriteCache()
@@ -330,10 +330,10 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     global opus_version
     global test_specified
 
-    if test_specified and not flac_version:
+    if test_specified and not flac_version: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
-    if not cfg["allow_library_modification"] and args.func is reencode_library:
+    if not cfg["allow_library_modification"] and args.func is reencode_library: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "Config setting 'allow_library_modification' is disabled. Enable to allow reencoding of library")
 
     if not flac_version and args.func is reencode_library:
@@ -704,7 +704,7 @@ def ReadCache() -> None:
 
     TimeCommand(start_time, "Reading library status", LogLevel.INFO)
 
-    flag.QuitWithoutSavingIfSignalled()
+    flag.QuitWithoutSavingIfSignalled() # pylint: disable=possibly-used-before-assignment
 
 def WriteCache() -> None:
     global cache
@@ -781,6 +781,7 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
 
     test_ran = False
     status = ""
+    # pylint: disable=possibly-used-before-assignment
     if (test_specified and is_new) or \
         ((test and (is_new or is_modified or not entry.fingerprint_on_last_test)) or \
          (retest_on_update and (fingerprint != entry.fingerprint_on_last_test or entry.flac_codec_on_last_test != flac_version)) or \
@@ -789,6 +790,7 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
         entry.fingerprint_on_last_test = fingerprint
         entry.flac_codec_on_last_test = flac_version
         test_ran = True
+    # pylint: enable=possibly-used-before-assignment
 
     return test_ran, entry.test_pass, status
 
@@ -1175,7 +1177,7 @@ def PrintScanSummary(summary, early_exit=False) -> None:
 def IsHiddenFile(path) -> bool:
     global is_windows
 
-    if is_windows:
+    if is_windows: # pylint: disable=possibly-used-before-assignment
         return bool(os.stat(path).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
     else:
         return os.path.basename(path).startswith(".")
