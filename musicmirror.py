@@ -99,9 +99,8 @@ def Log(level, log) -> None:
             case _:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
-        print_lock.acquire() # pylint: disable=possibly-used-before-assignment
-        print(full_log)
-        print_lock.release()
+        with print_lock: # pylint: disable=possibly-used-before-assignment
+            print(full_log)
 
         if exit_early:
             QuitWithoutSaving(1)
@@ -245,9 +244,8 @@ class GracefulExiter():
         signal_log = f"\nReceived signal {signal_name}; finishing processing"
         if signal.Signals(signum) == signal.SIGINT:
             signal_log += " (repeat to exit now)"
-        print_lock.acquire()
-        print(signal_log)
-        print_lock.release()
+        with print_lock:
+            print(signal_log)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         self.state = True
 
