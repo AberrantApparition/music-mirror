@@ -2,7 +2,9 @@
 
 # pylint: disable=invalid-name
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 # pylint: disable=no-else-return
+# pylint: disable=too-many-lines
 
 """
 Maintain a mirror image of a FLAC music library, transcoded to Opus.
@@ -53,7 +55,7 @@ Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 )
 
 @total_ordering
-class LogLevel(Enum):
+class LogLevel(Enum): # pylint: disable=missing-class-docstring
     ERROR = 0
     WARN  = 1
     INFO  = 2
@@ -850,13 +852,13 @@ def ReencodeFlac(entry) -> bool:
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False
 
-class RepadAction(Enum):
+class RepadAction(Enum): # pylint: disable=missing-class-docstring
     NONE           = 0
     MERGE_AND_SORT = 1
     RESIZE         = 2
 
-# Returns whether successful and the repad action to take. If not successful, action is always NONE
 def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
+    """Return whether flac repad successful and the repad action to take. If not successful, action is always NONE"""
     repad_check_log = f"Padding check for {entry.formatted_path}"
 
     metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
@@ -905,8 +907,8 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
             Log(LogLevel.WARN, f"metaflac padding check subprocess for {repad_check_log} timed out")
             return False, RepadAction.NONE
 
-# Returns whether repad attempted and whether successful (either repad check or repad itself can fail)
 def RepadFlac(entry) -> Tuple[bool, bool]:
+    """Return whether flac repad attempted and whether successful (either repad check or repad itself can fail)"""
     repad_check_ok, repad_action = CheckIfRepadNecessary(entry)
 
     use_shell = False
@@ -978,8 +980,8 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             Log(LogLevel.WARN, f"Repad subprocess for {repad_log} timed out")
             return True, False
 
-# Returns whether successful
 def TranscodeFlac(entry) -> bool:
+    """Return whether flac->opus transcode successful"""
     transcode_log = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
 
     if args.dry_run:
@@ -1085,8 +1087,8 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
 
     return 1 if is_new_entry else 0
 
-# Return whether a new entry was created, whether a FLAC test was ran, and whether the test passed
 def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
+    """Return whether a new cache flac entry was created, whether a FLAC test was ran, and whether the test passed"""
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
 
@@ -1127,12 +1129,12 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
 
     return is_new_entry, test_ran, test_pass
 
-def PrintScanSummary(summary, early_exit=False) -> None:
+def PrintScanSummary(stats, early_exit=False) -> None:
     if test_specified:
-        summary_log_level = LogLevel.WARN if summary["num_tests_failed"] > 0 else LogLevel.INFO
-        num_tests = summary["num_tests_passed"] + summary["num_tests_failed"]
-        pass_fail = f": {summary["num_tests_passed"]} passes, {summary["num_tests_failed"]} failures" if num_tests else ""
-        test_color = Colors.WARNING if summary["num_tests_failed"] else Colors.ENDC
+        summary_log_level = LogLevel.WARN if stats["num_tests_failed"] > 0 else LogLevel.INFO
+        num_tests = stats["num_tests_passed"] + stats["num_tests_failed"]
+        pass_fail = f": {stats["num_tests_passed"]} passes, {stats["num_tests_failed"]} failures" if num_tests else ""
+        test_color = Colors.WARNING if stats["num_tests_failed"] else Colors.ENDC
         test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
@@ -1141,13 +1143,13 @@ def PrintScanSummary(summary, early_exit=False) -> None:
     scan_result = "Scan interrupted:" if early_exit else "Scan complete:"
 
     Log(summary_log_level, f"{scan_result}\n" \
-                           f"{summary["num_dirs"]} dirs ({summary["num_new_dirs"]} new)\n" \
-                           f"{summary["num_files"]} files ({summary["num_new_files"]} new)\n" \
-                           f"{summary["num_flacs"]} flacs ({summary["num_new_flacs"]} new)" + \
+                           f"{stats["num_dirs"]} dirs ({stats["num_new_dirs"]} new)\n" \
+                           f"{stats["num_files"]} files ({stats["num_new_files"]} new)\n" \
+                           f"{stats["num_flacs"]} flacs ({stats["num_new_flacs"]} new)" + \
                            test_summary)
 
-    if summary["failed_flac_tests"]:
-        PrintFailureList('Failed flac tests:', summary["failed_flac_tests"])
+    if stats["failed_flac_tests"]:
+        PrintFailureList('Failed flac tests:', stats["failed_flac_tests"])
 
     if early_exit:
         SaveAndQuit()
@@ -1173,7 +1175,7 @@ def ScanLibrary() -> None:
     scan_test_log = "Scanning and testing library" if test_specified else "Scanning library"
     Log(LogLevel.INFO, f"{scan_test_log} in {cfg["formatted_library_path"]}")
 
-    summary = {
+    stats = {
         "num_dirs": 0,
         "num_files": 0,
         "num_flacs": 0,
@@ -1185,17 +1187,16 @@ def ScanLibrary() -> None:
         "failed_flac_tests": []
     }
 
-    flac_paths = []
-    non_flac_paths = []
+    flac_paths, non_flac_paths = [], []
 
     for root, dirs, files in os.walk(cfg["library_path"]):
         for directory in dirs:
             full_path = os.path.join(root, directory)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
-                summary["num_new_dirs"] += CreateOrUpdateCacheDirEntry(full_path)
-                summary["num_dirs"] += 1
+                stats["num_new_dirs"] += CreateOrUpdateCacheDirEntry(full_path)
+                stats["num_dirs"] += 1
             if flag.Exit():
-                PrintScanSummary(summary, early_exit=True)
+                PrintScanSummary(stats, early_exit=True)
 
         for file in files:
             full_path = os.path.join(root, file)
@@ -1205,7 +1206,7 @@ def ScanLibrary() -> None:
                 else:
                     non_flac_paths.append(full_path)
             if flag.Exit():
-                PrintScanSummary(summary, early_exit=True)
+                PrintScanSummary(stats, early_exit=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
         early_exit = False
@@ -1217,11 +1218,11 @@ def ScanLibrary() -> None:
                 break
         for future in future_to_path:
             if not future.cancelled():
-                summary["num_new_files"] += future.result()
-                summary["num_files"] += 1
+                stats["num_new_files"] += future.result()
+                stats["num_files"] += 1
 
     if early_exit:
-        PrintScanSummary(summary, early_exit)
+        PrintScanSummary(stats, early_exit)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
         early_exit = False
@@ -1235,23 +1236,25 @@ def ScanLibrary() -> None:
             if not future.cancelled():
                 is_new, test_ran, test_pass = future.result()
                 if test_ran and test_pass:
-                    summary["num_tests_passed"] += 1
+                    stats["num_tests_passed"] += 1
                 elif test_ran and not test_pass:
-                    summary["num_tests_failed"] += 1
-                    summary["failed_flac_tests"].append(future_to_path[future])
-                summary["num_new_flacs"] += 1 if is_new else 0
-                summary["num_flacs"] += 1
+                    stats["num_tests_failed"] += 1
+                    stats["failed_flac_tests"].append(future_to_path[future])
+                stats["num_new_flacs"] += 1 if is_new else 0
+                stats["num_flacs"] += 1
 
-    PrintScanSummary(summary, early_exit)
+    PrintScanSummary(stats, early_exit)
 
     TimeCommand(start_time, scan_test_log, LogLevel.INFO)
 
 def CheckForOrphanedCache() -> None:
     start_time = time()
 
-    num_orphaned_dirs = 0
-    num_orphaned_files = 0
-    num_orphaned_flacs = 0
+    stats = {
+        "num_orphaned_dirs": 0,
+        "num_orphaned_files": 0,
+        "num_orphaned_flacs": 0
+    }
 
     first_file_index = len(cache.dirs)
     first_flac_index = len(cache.dirs) + len(cache.files)
@@ -1261,17 +1264,17 @@ def CheckForOrphanedCache() -> None:
             Log(LogLevel.WARN, f"Status entry not found in last scan: {entry.formatted_path}")
             entry.present_in_last_scan = False
             if index < first_file_index:
-                num_orphaned_dirs += 1
+                stats['num_orphaned_dirs'] += 1
             elif index < first_flac_index:
-                num_orphaned_files += 1
+                stats['num_orphaned_files'] += 1
             else:
-                num_orphaned_flacs += 1
+                stats['num_orphaned_flacs'] += 1
 
-    if num_orphaned_dirs or num_orphaned_files or num_orphaned_flacs:
+    if stats['num_orphaned_dirs'] or stats['num_orphaned_files'] or stats['num_orphaned_flacs']:
         Log(LogLevel.INFO, f"Found orphaned status entries:\n" \
-                           f"{num_orphaned_dirs} dirs\n" \
-                           f"{num_orphaned_files} files\n" \
-                           f"{num_orphaned_flacs} flacs")
+                           f"{stats['num_orphaned_dirs']} dirs\n" \
+                           f"{stats['num_orphaned_files']} files\n" \
+                           f"{stats['num_orphaned_flacs']} flacs")
         if args.func is mirror_library:
             Log(LogLevel.INFO, "Orphaned entries and the mirrored files they point to will be removed in the upcoming mirror")
         else:
@@ -1279,24 +1282,48 @@ def CheckForOrphanedCache() -> None:
 
     TimeCommand(start_time, "Checking for orphaned status entries", LogLevel.INFO)
 
+def PrintReencodeSummary(stats, early_exit) -> None:
+    reencode_result = "Library reencode interrupted:" if early_exit else "Library reencode complete:"
+    if stats['num_failed'] > 0:
+        summary_log_level = LogLevel.WARN
+        reencode_fail = f"\n{Colors.WARNING}{stats['num_failed']} not reencoded due to errors{Colors.ENDC}"
+    else:
+        summary_log_level = LogLevel.INFO
+        reencode_fail = ""
+    if early_exit:
+        interrupted_summary = f"\n{stats['num_interrupted']} interrupted"
+    else:
+        interrupted_summary = ""
+    Log(summary_log_level, f"{reencode_result}\n" \
+                           f"{stats['num_total']} total FLACs\n" \
+                           f"{stats['num_reencoded']} reencoded" + \
+                           reencode_fail + \
+                           interrupted_summary)
+
+    if stats['failed_reencodes']:
+        PrintFailureList('Failed reencodes:', stats['failed_reencodes'])
+
+    flag.SaveAndQuitIfSignalled()
+
 def ReencodeLibrary() -> None:
     start_time = time()
 
     Log(LogLevel.INFO, f"Reencoding FLACs in {cfg["formatted_library_path"]}")
 
-    num_reencoded = 0
-    num_failed = 0
-    num_interrupted = 0
-    num_total = 0
-
-    failed_reencodes = []
+    stats = {
+        "num_reencoded": 0,
+        "num_failed": 0,
+        "num_interrupted": 0,
+        "num_total": 0,
+        "failed_reencodes": []
+    }
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
         early_exit = False
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
-                num_total += 1
+                stats['num_total'] += 1
                 reencode_for_change = args.reencode_on_change and \
                                       entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode and \
                                       not entry.reencode_ignore_last_fingerprint_change
@@ -1313,59 +1340,62 @@ def ReencodeLibrary() -> None:
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
-                num_interrupted += 1
+                stats['num_interrupted'] += 1
             else:
                 if future.result():
-                    num_reencoded += 1
+                    stats['num_reencoded'] += 1
                 else:
-                    num_failed += 1
-                    failed_reencodes.append(entry.library_path)
+                    stats['num_failed'] += 1
+                    stats['failed_reencodes'].append(entry.library_path)
 
-    reencode_result = "Library reencode interrupted:" if early_exit else "Library reencode complete:"
-    if num_failed > 0:
-        summary_log_level = LogLevel.WARN
-        reencode_fail = f"\n{Colors.WARNING}{num_failed} not reencoded due to errors{Colors.ENDC}"
-    else:
-        summary_log_level = LogLevel.INFO
-        reencode_fail = ""
-    if early_exit:
-        interrupted_summary = f"\n{num_interrupted} interrupted"
-    else:
-        interrupted_summary = ""
-    Log(summary_log_level, f"{reencode_result}\n" \
-                           f"{num_total} total FLACs\n" \
-                           f"{num_reencoded} reencoded" + \
-                           reencode_fail + \
-                           interrupted_summary)
-
-    if failed_reencodes:
-        PrintFailureList('Failed reencodes:', failed_reencodes)
-
-    flag.SaveAndQuitIfSignalled()
+    PrintReencodeSummary(stats, early_exit)
 
     TimeCommand(start_time, "Reencoding library", LogLevel.INFO)
+
+def PrintRepadSummary(stats, early_exit) -> None:
+    repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
+    if stats['num_failed'] > 0:
+        summary_log_level = LogLevel.WARN
+        repad_fail = f"\n{Colors.WARNING}{stats['num_failed']} not repadded due to errors{Colors.ENDC}"
+    else:
+        summary_log_level = LogLevel.INFO
+        repad_fail = ""
+    if early_exit:
+        interrupted_summary = f"\n{stats['num_interrupted']} interrupted"
+    else:
+        interrupted_summary = ""
+    Log(summary_log_level, f"{repad_result}\n" \
+                           f"{stats['num_total']} total FLACs\n" \
+                           f"{stats['num_padding_ok']} had acceptable padding\n" + \
+                           f"{stats['num_repadded']} repadded" + \
+                           repad_fail + \
+                           interrupted_summary)
+
+    if stats['failed_repads']:
+        PrintFailureList('Failed repads:', stats['failed_repads'])
+
+    flag.SaveAndQuitIfSignalled()
 
 def RepadLibrary() -> None:
     start_time = time()
 
     Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
 
-    summary = {
+    stats = {
         "num_repadded": 0,
         "num_padding_ok": 0,
         "num_failed": 0,
         "num_interrupted": 0,
-        "num_total": 0
+        "num_total": 0,
+        "failed_repads": []
     }
-
-    failed_repads = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
         early_exit = False
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
-                summary['num_total'] += 1
+                stats['num_total'] += 1
                 if args.force or \
                    args.force_repad or \
                    entry.fingerprint_on_last_scan != entry.fingerprint_on_last_repad:
@@ -1377,39 +1407,18 @@ def RepadLibrary() -> None:
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
-                summary['num_interrupted'] += 1
+                stats['num_interrupted'] += 1
             else:
                 repad_attempted, command_successful = future.result()
                 if repad_attempted and command_successful:
-                    summary['num_repadded'] += 1
+                    stats['num_repadded'] += 1
                 elif not repad_attempted and command_successful:
-                    summary['num_padding_ok'] += 1
+                    stats['num_padding_ok'] += 1
                 else:
-                    summary['num_failed'] += 1
-                    failed_repads.append(entry.library_path)
+                    stats['num_failed'] += 1
+                    stats['failed_repads'].append(entry.library_path)
 
-    repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
-    if summary['num_failed'] > 0:
-        summary_log_level = LogLevel.WARN
-        repad_fail = f"\n{Colors.WARNING}{summary['num_failed']} not repadded due to errors{Colors.ENDC}"
-    else:
-        summary_log_level = LogLevel.INFO
-        repad_fail = ""
-    if early_exit:
-        interrupted_summary = f"\n{summary['num_interrupted']} interrupted"
-    else:
-        interrupted_summary = ""
-    Log(summary_log_level, f"{repad_result}\n" \
-                           f"{summary['num_total']} total FLACs\n" \
-                           f"{summary['num_padding_ok']} had acceptable padding\n" + \
-                           f"{summary['num_repadded']} repadded" + \
-                           repad_fail + \
-                           interrupted_summary)
-
-    if failed_repads:
-        PrintFailureList('Failed repads:', failed_repads)
-
-    flag.SaveAndQuitIfSignalled()
+    PrintRepadSummary(stats, early_exit)
 
     TimeCommand(start_time, "Repadding library", LogLevel.INFO)
 
@@ -1424,13 +1433,13 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     Log(LogLevel.INFO, f"Removing orphaned files from {cfg["formatted_output_library_path"]}")
 
-    num_dirs_removed = 0
-    num_files_removed = 0
-    num_transcodes_removed = 0
+    stats = {
+        "num_dirs_removed": 0,
+        "num_files_removed": 0,
+        "num_transcodes_removed": 0
+    }
 
-    # TODO worth it to remove orphaned file/flac entries from cache as they are deleted by rmtree here?
-
-    dir_removal_list = []
+    removal_list = []
     for index, entry in enumerate(cache.dirs):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1442,14 +1451,18 @@ def RemoveOrphanedFilesFromPortable() -> None:
                     Log(LogLevel.TRACE, deletion_str)
                 else:
                     Log(LogLevel.DEBUG, f"Directory was removed outside of script: {entry.formatted_portable_path}")
-                dir_removal_list.append(index)
-            num_dirs_removed += 1
+                removal_list.append(index)
+            stats['num_dirs_removed'] += 1
         if flag.Exit():
-            RemoveElementsFromSequence(cache.dirs, dir_removal_list)
+            RemoveElementsFromSequence(cache.dirs, removal_list)
             flag.SaveAndQuit()
-    RemoveElementsFromSequence(cache.dirs, dir_removal_list)
+    RemoveElementsFromSequence(cache.dirs, removal_list)
 
-    file_removal_list = []
+    # Some orphaned files have already been deleted at this point due to the above shutil.rmtree() call
+    # It's simpler and faster to not bookkeep the changes in the cache as they occur
+    # Instead naively continue and use missing_ok=True when deleting files
+
+    removal_list = []
     for index, entry in enumerate(cache.files):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1458,14 +1471,14 @@ def RemoveOrphanedFilesFromPortable() -> None:
             else:
                 Log(LogLevel.TRACE, deletion_str)
                 Path.unlink(entry.portable_path, missing_ok=True)
-                file_removal_list.append(index)
-            num_files_removed += 1
+                removal_list.append(index)
+            stats['num_files_removed'] += 1
         if flag.Exit():
-            RemoveElementsFromSequence(cache.dirs, file_removal_list)
+            RemoveElementsFromSequence(cache.dirs, removal_list)
             flag.SaveAndQuit()
-    RemoveElementsFromSequence(cache.files, file_removal_list)
+    RemoveElementsFromSequence(cache.files, removal_list)
 
-    flac_removal_list = []
+    removal_list = []
     for index, entry in enumerate(cache.flacs):
         if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
@@ -1474,49 +1487,48 @@ def RemoveOrphanedFilesFromPortable() -> None:
             else:
                 Log(LogLevel.TRACE, deletion_str)
                 Path.unlink(entry.portable_path, missing_ok=True)
-                flac_removal_list.append(index)
-            num_transcodes_removed += 1
+                removal_list.append(index)
+            stats['num_transcodes_removed'] += 1
         if flag.Exit():
-            RemoveElementsFromSequence(cache.dirs, flac_removal_list)
+            RemoveElementsFromSequence(cache.dirs, removal_list)
             flag.SaveAndQuit()
-    RemoveElementsFromSequence(cache.flacs, flac_removal_list)
+    RemoveElementsFromSequence(cache.flacs, removal_list)
 
     Log(LogLevel.INFO, f"Orphaned file deletion complete:\n" \
-                       f"{num_dirs_removed} dirs deleted\n" \
-                       f"{num_files_removed} files deleted\n" \
-                       f"{num_transcodes_removed} transcodes deleted")
+                       f"{stats['num_dirs_removed']} dirs deleted\n" \
+                       f"{stats['num_files_removed']} files deleted\n" \
+                       f"{stats['num_transcodes_removed']} transcodes deleted")
 
     TimeCommand(start_time, "Removing orphaned files", LogLevel.INFO)
 
-def PrintMirrorAndTranscodeSummary(summary, early_exit=False) -> None:
+def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
     mirror_and_transcode_result = "File mirroring/transcoding interrupted:" if early_exit else "File mirroring/transcoding complete:"
 
-    if summary["num_file_mirrors_failed"] > 0:
+    if stats["num_file_mirrors_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        mirror_fail = f"\n{Colors.WARNING}Files failed to mirror:                   {summary["num_file_mirrors_failed"]}{Colors.ENDC}"
+        mirror_fail = f"\n{Colors.WARNING}Files failed to mirror:                   {stats["num_file_mirrors_failed"]}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         mirror_fail = ""
 
-    if summary["num_flac_transcodes_failed"] > 0:
+    if stats["num_flac_transcodes_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        transcode_fail = f"\n{Colors.WARNING}Flacs failed to transcode:                {summary["num_flac_transcodes_failed"]}{Colors.ENDC}"
+        transcode_fail = f"\n{Colors.WARNING}Flacs failed to transcode:                {stats["num_flac_transcodes_failed"]}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         transcode_fail = ""
 
     Log(summary_log_level, f"{mirror_and_transcode_result}\n" \
-                           f"Directories mirrored (new/total):         {summary["num_dirs_mirrored"]}/{len(cache.dirs)}\n" \
-                           f"Files mirrored (new/interrupted/total):   {summary["num_file_mirrors_succeeded"]}/{summary["num_file_mirrors_interrupted"]}/{len(cache.files)}\n" \
-                           f"Flacs transcoded (new/interrupted/total): {summary["num_flac_transcodes_succeeded"]}/{summary["num_flac_transcodes_interrupted"]}/{len(cache.flacs)}" + \
+                           f"Directories mirrored (new/total):         {stats["num_dirs_mirrored"]}/{len(cache.dirs)}\n" \
+                           f"Files mirrored (new/interrupted/total):   {stats["num_file_mirrors_succeeded"]}/{stats["num_file_mirrors_interrupted"]}/{len(cache.files)}\n" \
+                           f"Flacs transcoded (new/interrupted/total): {stats["num_flac_transcodes_succeeded"]}/{stats["num_flac_transcodes_interrupted"]}/{len(cache.flacs)}" + \
                            mirror_fail + \
                            transcode_fail)
 
-    if summary["failed_mirrors"]:
-        PrintFailureList('Failed mirrors:', summary["failed_mirrors"])
-
-    if summary["failed_transcodes"]:
-        PrintFailureList('Failed transcodes:', summary["failed_transcodes"])
+    if stats["failed_mirrors"]:
+        PrintFailureList('Failed mirrors:', stats["failed_mirrors"])
+    if stats["failed_transcodes"]:
+        PrintFailureList('Failed transcodes:', stats["failed_transcodes"])
 
     if early_exit:
         SaveAndQuit()
@@ -1555,7 +1567,7 @@ def MirrorLibrary() -> None:
 
     Log(LogLevel.INFO, f"Mirroring/transcoding files to portable library {cfg["formatted_output_library_path"]}")
 
-    summary = {
+    stats = {
         "num_dirs_mirrored": 0,
         "num_file_mirrors_succeeded": 0,
         "num_file_mirrors_interrupted": 0,
@@ -1579,13 +1591,13 @@ def MirrorLibrary() -> None:
                 Log(LogLevel.DEBUG, dir_mirror_str)
                 os.makedirs(entry.portable_path, exist_ok=True)
                 entry.mirrored = True
-            summary["num_dirs_mirrored"] += 1
+            stats["num_dirs_mirrored"] += 1
         if flag.Exit():
-            # Do not exit on signals in the loop because this should always be fast; no huge problem to finish this
+            # Do not exit on signals in the loop because loop should always be fast; no huge problem to finish
             early_exit = True
 
     if early_exit:
-        PrintMirrorAndTranscodeSummary(summary, early_exit)
+        PrintMirrorAndTranscodeSummary(stats, early_exit)
 
     # Mirror non-flac files
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
@@ -1600,15 +1612,15 @@ def MirrorLibrary() -> None:
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
-                summary["num_file_mirrors_interrupted"] += 1
+                stats["num_file_mirrors_interrupted"] += 1
             elif future.result():
-                summary["num_file_mirrors_succeeded"] += 1
+                stats["num_file_mirrors_succeeded"] += 1
             else:
-                summary["num_file_mirrors_failed"] += 1
-                summary["failed_mirrors"].append(entry.library_path)
+                stats["num_file_mirrors_failed"] += 1
+                stats["failed_mirrors"].append(entry.library_path)
 
     if early_exit:
-        PrintMirrorAndTranscodeSummary(summary, early_exit)
+        PrintMirrorAndTranscodeSummary(stats, early_exit)
 
     # Mirror flacs
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
@@ -1626,15 +1638,15 @@ def MirrorLibrary() -> None:
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
-                summary["num_flac_transcodes_interrupted"] += 1
+                stats["num_flac_transcodes_interrupted"] += 1
             else:
                 if future.result():
-                    summary["num_flac_transcodes_succeeded"] += 1
+                    stats["num_flac_transcodes_succeeded"] += 1
                 else:
-                    summary["num_flac_transcodes_failed"] += 1
-                    summary["failed_transcodes"].append(entry.library_path)
+                    stats["num_flac_transcodes_failed"] += 1
+                    stats["failed_transcodes"].append(entry.library_path)
 
-    PrintMirrorAndTranscodeSummary(summary, early_exit)
+    PrintMirrorAndTranscodeSummary(stats, early_exit)
 
     TimeCommand(start_time, "Mirroring/transcoding files", LogLevel.INFO)
 
