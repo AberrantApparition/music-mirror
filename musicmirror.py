@@ -290,21 +290,22 @@ def CheckDependencies() -> Tuple[str, str]:
             QuitWithoutSaving()
         Log(LogLevel.WARN, f"opus codec unavailable - cannot encode Opus files: {str(exc)}")
 
-    Log(LogLevel.INFO, "Python version:   " + str(sys.version))
+    Log(LogLevel.INFO, f"Python version:   {str(sys.version)}")
     if flac_version_str:
-        Log(LogLevel.INFO, "flac version:     " + flac_version_str)
+        Log(LogLevel.INFO, f"flac version:     {flac_version_str}")
     if metaflac_version:
-        Log(LogLevel.INFO, "metaflac version: " + metaflac_version)
+        Log(LogLevel.INFO, f"metaflac version: {metaflac_version}")
     if opus_version_str:
-        Log(LogLevel.INFO, "Opus version:     " + opus_version_str)
+        Log(LogLevel.INFO, f"Opus version:     {opus_version_str}")
 
     return flac_version_str, opus_version_str
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
-    if test_specified and not flac_version: # pylint: disable=possibly-used-before-assignment
+     # pylint: disable=possibly-used-before-assignment
+    if test_specified and not flac_version:
         Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
-    if not cfg["allow_library_modification"] and args.func is reencode_library: # pylint: disable=possibly-used-before-assignment
+    if not cfg["allow_library_modification"] and args.func is reencode_library:
         Log(LogLevel.ERROR, "Config setting 'allow_library_modification' is disabled. Enable to allow reencoding of library")
 
     if not flac_version and args.func is reencode_library:
@@ -314,7 +315,7 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     if not flac_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
 
-    if not opus_version and args.func is mirror_library: # pylint: disable=possibly-used-before-assignment
+    if not opus_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
@@ -757,13 +758,13 @@ def TestFlac(file_path) -> Tuple[bool, str]:
             return False, status
 
 def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
+    # pylint: disable=possibly-used-before-assignment
     test_ran = False
     status = ""
-    # pylint: disable=possibly-used-before-assignment
     test_due_to_change = test_specified and fingerprint != entry.fingerprint_on_last_test
     retest_due_to_update = retest_on_update and entry.flac_codec_on_last_test != flac_version
+
     if test_due_to_change or retest_due_to_update or test_force:
-    # pylint: enable=possibly-used-before-assignment
         entry.test_pass, status = TestFlac(entry.library_path)
         entry.fingerprint_on_last_test = fingerprint
         entry.flac_codec_on_last_test = flac_version
