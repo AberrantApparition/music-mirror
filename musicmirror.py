@@ -6,6 +6,8 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 Run `./musicmirror --help` for options
 """
 
+# pylint: disable=no-else-return
+
 import argparse
 from collections import namedtuple
 import concurrent.futures
