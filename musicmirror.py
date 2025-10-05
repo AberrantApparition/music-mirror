@@ -282,17 +282,15 @@ def AppendPathSeparator(path) -> str:
         path += os.sep
     return path
 
-def CheckDependencies() -> None:
+def CheckDependencies() -> Tuple[str, str]:
     global cfg
-    global flac_version
-    global opus_version
 
     try:
         flac_output = subprocess.run(['flac', '--version'], capture_output=True)
         if flac_output.returncode < 0:
             QuitWithoutSaving()
-        flac_version = flac_output.stdout.decode('utf-8')[:-1]
-        flac_version = ConvertFlacVersionToVendorString(flac_version)
+        flac_version_str = flac_output.stdout.decode('utf-8')[:-1]
+        flac_version_str = ConvertFlacVersionToVendorString(flac_version_str)
     except subprocess.CalledProcessError as exc:
         flac_error = str(exc)
 
@@ -308,24 +306,26 @@ def CheckDependencies() -> None:
         opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
         if opus_output.returncode < 0:
             QuitWithoutSaving()
-        opus_version = opus_output.stdout.decode('utf-8').split("\n")[0]
+        opus_version_str = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
         opus_error = str(exc)
 
-    if not flac_version:
+    if not flac_version_str:
         Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
     if not metaflac_version:
         Log(LogLevel.WARN, "metaflac unavailable - cannot adjust padding in FLACs: " + metaflac_error)
-    if not opus_version:
+    if not opus_version_str:
         Log(LogLevel.WARN, "opus codec unavailable - cannot encode Opus files: " + opus_error)
 
     Log(LogLevel.INFO, "Python version:   " + str(sys.version))
-    if flac_version:
-        Log(LogLevel.INFO, "flac version:     " + flac_version)
+    if flac_version_str:
+        Log(LogLevel.INFO, "flac version:     " + flac_version_str)
     if metaflac_version:
         Log(LogLevel.INFO, "metaflac version: " + metaflac_version)
-    if opus_version:
-        Log(LogLevel.INFO, "Opus version:     " + opus_version)
+    if opus_version_str:
+        Log(LogLevel.INFO, "Opus version:     " + opus_version_str)
+
+    return flac_version_str, opus_version_str
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
     global args
@@ -347,7 +347,7 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     if not flac_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
 
-    if not opus_version and args.func is mirror_library:
+    if not opus_version and args.func is mirror_library: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
@@ -1969,9 +1969,7 @@ if __name__ == '__main__':
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
 
-    flac_version = "" # pylint: disable=invalid-name
-    opus_version = "" # pylint: disable=invalid-name
-    CheckDependencies()
+    flac_version, opus_version = CheckDependencies()
 
     ValidateDependencyConfigArgumentCombinations()
 
