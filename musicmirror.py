@@ -286,28 +286,28 @@ def CheckDependencies() -> Tuple[str, str]:
     global cfg
 
     try:
-        flac_output = subprocess.run(['flac', '--version'], capture_output=True)
-        if flac_output.returncode < 0:
-            QuitWithoutSaving()
+        flac_output = subprocess.run(['flac', '--version'], capture_output=True, check=True)
         flac_version_str = flac_output.stdout.decode('utf-8')[:-1]
         flac_version_str = ConvertFlacVersionToVendorString(flac_version_str)
     except subprocess.CalledProcessError as exc:
+        if exc.returncode < 0:
+            QuitWithoutSaving()
         Log(LogLevel.WARN, f"flac codec unavailable - cannot encode, decode, or test FLACs: {str(exc)}")
 
     try:
-        metaflac_output = subprocess.run(['metaflac', '--version'], capture_output=True)
-        if metaflac_output.returncode < 0:
-            QuitWithoutSaving()
+        metaflac_output = subprocess.run(['metaflac', '--version'], capture_output=True, check=True)
         metaflac_version = metaflac_output.stdout.decode('utf-8')[:-1]
     except subprocess.CalledProcessError as exc:
+        if exc.returncode < 0:
+            QuitWithoutSaving()
         Log(LogLevel.WARN, f"metaflac unavailable - cannot adjust padding in FLACs: {str(exc)}")
 
     try:
-        opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
-        if opus_output.returncode < 0:
-            QuitWithoutSaving()
+        opus_output = subprocess.run(['opusenc', '--version'], capture_output=True, check=True)
         opus_version_str = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
+        if exc.returncode < 0:
+            QuitWithoutSaving()
         Log(LogLevel.WARN, f"opus codec unavailable - cannot encode Opus files: {str(exc)}")
 
     Log(LogLevel.INFO, "Python version:   " + str(sys.version))
@@ -776,19 +776,13 @@ def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
     return False
 
 def TestFlac(file_path) -> Tuple[bool, str]:
-    global cfg
-
-    test_error = ''
-
-    test_result = subprocess.run(['flac', '-t', '-w', '-s', file_path], capture_output=True)
+    test_result = subprocess.run(['flac', '-t', '-w', '-s', file_path], capture_output=True, check=False)
+    # TODO handle negative returncode for signals
     if test_result.returncode != 0:
         test_error = test_result.stderr.decode("utf-8").split(".flac: ")[-1][:-1]
-
-    if test_error:
         status = f"{Colors.WARNING}FLAC test failed:\n{test_error}{Colors.ENDC}"
         return False, status
-    status = ""
-    return True, status
+    return True, ""
 
 def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
     global flac_version
