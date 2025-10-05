@@ -776,13 +776,25 @@ def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
     return False
 
 def TestFlac(file_path) -> Tuple[bool, str]:
-    test_result = subprocess.run(['flac', '-t', '-w', '-s', file_path], capture_output=True, check=False)
-    # TODO handle negative returncode for signals
-    if test_result.returncode != 0:
-        test_error = test_result.stderr.decode("utf-8").split(".flac: ")[-1][:-1]
-        status = f"{Colors.WARNING}FLAC test failed:\n{test_error}{Colors.ENDC}"
-        return False, status
-    return True, ""
+    with subprocess.Popen(['flac', '-t', '-w', '-s', file_path],
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
+        try:
+            errs = p.communicate(timeout=60)[1]
+            if p.returncode == 0:
+                return True, ""
+            else:
+                if p.returncode < 0:
+                    status = f"{Colors.WARNING}FLAC test terminated by signal {-1 * p.returncode}{Colors.ENDC}"
+                else:
+                    test_error = errs.removesuffix('\n').split(".flac: ")[-1][:-1]
+                    status = f"{Colors.WARNING}FLAC test failed:\n{test_error}{Colors.ENDC}"
+                return False, status
+        except subprocess.TimeoutExpired:
+            status = "FLAC test subprocess timed out"
+            return False, status
 
 def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
     global flac_version
