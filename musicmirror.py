@@ -765,19 +765,15 @@ def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
             except UnicodeDecodeError:
                 Log(LogLevel.TRACE, f"Could not decode playlist {playlist_convert_str} with encoding {encoding}")
                 continue
-        if data:
             updated_string = sub(r".flac$", ".opus", data, flags=MULTILINE)
-        else:
-            Log(LogLevel.WARN, f"Could not decode playlist {playlist_convert_str}")
-            return False
-
-        output_file = Path(output_path)
-        output_file.parent.mkdir(exist_ok=True, parents=True)
-        output_file.write_text(updated_string)
-        return True
+            output_file = Path(output_path)
+            output_file.parent.mkdir(exist_ok=True, parents=True)
+            output_file.write_text(updated_string, encoding=encoding)
+            return True
+        Log(LogLevel.WARN, f"Could not decode playlist {playlist_convert_str}")
     except OSError as exc:
         Log(LogLevel.WARN, f"Error when converting playlist {playlist_convert_str}: {exc}")
-        return False
+    return False
 
 def TestFlac(file_path) -> Tuple[bool, str]:
     global cfg
