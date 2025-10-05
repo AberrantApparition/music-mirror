@@ -4,6 +4,7 @@
 # pylint: disable=line-too-long
 # pylint: disable=missing-function-docstring
 # pylint: disable=no-else-return
+# pylint: disable=too-many-lines
 
 """
 Maintain a mirror image of a FLAC music library, transcoded to Opus.
