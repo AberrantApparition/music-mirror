@@ -754,12 +754,11 @@ def AddColor(text, color='') -> str:
 
 def DetectPlaylist(file_path) -> bool:
     file_extension = file_path.split(".")[-1]
-    return file_extension == "m3u" or file_extension == "m3u8"
+    return file_extension in ('m3u', 'm3u8')
 
 def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
     try:
-        possible_encodings = ["utf-8", "cp1252", "latin1"]
-        for encoding in possible_encodings:
+        for encoding in ('utf-8', 'cp1252', 'latin1'):
             try:
                 with open(file_path, 'r', encoding=encoding) as in_playlist:
                     data = in_playlist.read()
