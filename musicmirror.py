@@ -54,11 +54,11 @@ Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 
 @total_ordering
 class LogLevel(Enum):
-    ERROR    = 0
-    WARN     = 1
-    INFO     = 2
-    DEBUG    = 3
-    TRACE    = 4
+    ERROR = 0
+    WARN  = 1
+    INFO  = 2
+    DEBUG = 3
+    TRACE = 4
     def __lt__(self, other) -> Union[bool, NotImplemented]:
         if self.__class__ is other.__class__:
             return self.value < other.value
@@ -1709,6 +1709,11 @@ def ListEntries() -> None:
 
     TimeCommand(start_time, "Listing status entries", LogLevel.INFO)
 
+def SaveCacheBackup() -> None:
+    library_status_backup_path = cfg["library_status_path"] + ".bak"
+    shutil.copy2(cfg["library_status_path"], library_status_backup_path)
+    Log(LogLevel.INFO, f"Saved backup of current library status file at {library_status_backup_path}")
+
 def ParseArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Maintain mirror image music library, transcoded to Opus")
     parser.add_argument("-v", "--version", action='version', version='%(prog)s 1.0.0')
@@ -1747,6 +1752,7 @@ def ParseArgs() -> argparse.Namespace:
     return parser.parse_args()
 
 def reencode_library() -> None:
+    SaveCacheBackup()
     ReadCache()
     if not args.skip_scan:
         ScanLibrary()
@@ -1757,6 +1763,7 @@ def reencode_library() -> None:
     WriteCache()
 
 def mirror_library() -> None:
+    SaveCacheBackup()
     ReadCache()
     if not args.skip_scan:
         ScanLibrary()
@@ -1793,12 +1800,14 @@ def convert_playlists() -> None:
             flag.SaveAndQuitIfSignalled()
 
 def scan_library() -> None:
+    SaveCacheBackup()
     ReadCache()
     ScanLibrary()
     CheckForOrphanedCache()
     WriteCache()
 
-def list_cache():
+def list_cache() -> None:
+    SaveCacheBackup()
     ReadCache()
     if args.orphan_only:
         ListOrphanedEntries()
@@ -1806,28 +1815,25 @@ def list_cache():
         ListEntries()
 
 if __name__ == '__main__':
-    script_start = time()
     assert sys.version_info >= (3, 10)
-
+    script_start = time()
     is_windows = system() == "Windows"
-
     print_lock = Lock()
+    cpu_count = os.process_cpu_count() if sys.version_info >= (3, 13) else os.cpu_count()
+    flag = GracefulExiter()
+    cache = []
+
+    # ffmpeg changes stdin attributes when it is terminated
+    # ffmpeg support was dropped, but no harm leaving this here in case it's still needed somehow
+    original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
 
     args = ParseArgs()
-
-    cpu_count = os.process_cpu_count() if sys.version_info >= (3, 13) else os.cpu_count()
 
     # Convenience shortcuts for test arguments
     test = hasattr(args, 'test') and args.test
     test_force = hasattr(args, 'test_force') and args.test_force
     retest_on_update = hasattr(args, 'retest_on_update') and args.retest_on_update
     test_specified = test or retest_on_update or test_force
-
-    # ffmpeg has a bad habit of changing stdin attributes when it is terminated
-    # ffmpeg is dropped now, but no harm leaving this here in case it's still needed somehow
-    original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
-
-    flag = GracefulExiter()
 
     cfg = {}
     tmp_config = ReadConfig(CONFIG_FILE)
@@ -1840,23 +1846,14 @@ if __name__ == '__main__':
         cfg["num_threads"] = cpu_count
     Log(LogLevel.INFO, f"Using {cfg["num_threads"]} worker threads")
 
+    os.makedirs(cfg["output_library_path"], exist_ok=True)
     if args.func is convert_playlists:
         os.makedirs(cfg["portable_playlist_path"], exist_ok=True)
 
-    os.makedirs(cfg["output_library_path"], exist_ok=True)
-
     flac_version, opus_version = CheckDependencies()
-
     ValidateDependencyConfigArgumentCombinations()
 
-    cache = []
-
     flag.QuitWithoutSavingIfSignalled()
-
-    library_status_backup_path = cfg["library_status_path"] + ".bak"
-    shutil.copy2(cfg["library_status_path"], library_status_backup_path)
-    Log(LogLevel.INFO, f"Saved backup of current library status file at {library_status_backup_path}")
-
     args.func()
 
     TimeCommand(script_start, "MusicMirror", LogLevel.INFO)
