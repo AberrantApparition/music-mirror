@@ -113,7 +113,7 @@ def ReadConfig(config_path) -> dict:
 
     Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}")
 
-    with open(config_path) as stream:
+    with open(config_path, encoding="utf-8") as stream:
         try:
             cfg_dict = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -685,7 +685,7 @@ def ReadCache() -> None:
 
     Log(LogLevel.INFO, f"Reading library status from {cfg["formatted_library_status_path"]}")
 
-    with open(cfg["library_status_path"]) as stream:
+    with open(cfg["library_status_path"], encoding="utf-8") as stream:
         try:
             cache_dict = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -713,7 +713,7 @@ def WriteCache() -> None:
     start_time = time()
 
     Log(LogLevel.INFO, f"Saving library status to {cfg["formatted_library_status_path"]}")
-    with open(cfg["library_status_path"], "w") as stream:
+    with open(cfg["library_status_path"], "w", encoding="utf-8") as stream:
         try:
             stream.write(yaml.dump(cache.asdict()))
         except yaml.YAMLError as exc:
@@ -793,7 +793,7 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
     return test_ran, entry.test_pass, status
 
 def CalculateFileHash(file_path) -> str:
-    with open(file_path, "rb") as f:
+    with open(file_path, "rb", encoding="utf-8") as f:
         return file_digest(f, 'sha224').hexdigest()
 
 def CalculateFingerprint(file_path) -> str:
