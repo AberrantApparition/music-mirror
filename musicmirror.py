@@ -445,7 +445,7 @@ def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
     return ok
 
 @dataclass
-class DirEntry():
+class DirEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     present_in_last_scan: bool
     mirrored: bool
@@ -501,7 +501,7 @@ class DirEntry():
         }
 
 @dataclass
-class FileEntry():
+class FileEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     fingerprint_on_last_scan: str
     fingerprint_on_last_mirror: str
@@ -560,7 +560,7 @@ class FileEntry():
         }
 
 @dataclass
-class FlacEntry():
+class FlacEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     fingerprint_on_last_scan: str
     present_in_last_scan: bool
