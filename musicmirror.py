@@ -997,7 +997,7 @@ def TranscodeFlac(entry) -> bool:
 
     if args.dry_run:
         Log(LogLevel.TRACE, f"Dry run: {transcode_log}")
-        return True, se
+        return True, False
 
     transcode_args = ['opusenc', '--quiet', '--music', '--bitrate', str(cfg["opus_bitrate"]), entry.library_path, entry.portable_path]
 
