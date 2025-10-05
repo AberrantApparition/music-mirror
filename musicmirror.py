@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+# pylint: disable=line-too-long
+# pylint: disable=no-else-return
+
 """
 Maintain a mirror image of a FLAC music library, transcoded to Opus.
 A fingerprint of each file is saved in `fingerprints.yaml`, allowing for incremental processing of only updated or new files.
 Run `./musicmirror --help` for options
 """
-
-# pylint: disable=no-else-return
 
 import argparse
 from collections import namedtuple
@@ -158,49 +159,50 @@ def ValidateConfig(config) -> bool:
 
     ok = ValidateConfigPaths(config)
 
-    if config["log_level"] == "error":
-        config["log_level"] = LogLevel.ERROR
-    elif config["log_level"] == "warn":
-        config["log_level"] = LogLevel.WARN
-    elif config["log_level"] == "info":
-        config["log_level"] = LogLevel.INFO
-    elif config["log_level"] == "debug":
-        config["log_level"] = LogLevel.DEBUG
-    elif config["log_level"] == "trace":
-        config["log_level"] = LogLevel.TRACE
-    else:
-        Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
-        ok = False
+    match config["log_level"]:
+        case "error":
+            config["log_level"] = LogLevel.ERROR
+        case "warn":
+            config["log_level"] = LogLevel.WARN
+        case "info":
+            config["log_level"] = LogLevel.INFO
+        case "debug":
+            config["log_level"] = LogLevel.DEBUG
+        case "trace":
+            config["log_level"] = LogLevel.TRACE
+        case _:
+            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
+            ok = False
     if ok:
         Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, f"Opus bitrate must be a positive integer", always_log=True)
+        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True)
         ok = False
 
     if config["min_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Min flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["max_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Max flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["target_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Target flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["target_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than target_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["target_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
@@ -241,7 +243,7 @@ class GracefulExiter():
         signal.signal(signal.SIGHUP, self.ChangeState)
         signal.signal(signal.SIGTERM, self.ChangeState)
 
-    def ChangeState(self, signum, frame) -> None:
+    def ChangeState(self, signum, _frame) -> None:
         global print_lock
 
         signal_name = signal.Signals(signum).name
@@ -280,19 +282,17 @@ def AppendPathSeparator(path) -> str:
         path += os.sep
     return path
 
-def CheckDependencies() -> None:
+def CheckDependencies() -> Tuple[str, str]:
     global cfg
-    global flac_version
-    global opus_version
 
     try:
         flac_output = subprocess.run(['flac', '--version'], capture_output=True)
         if flac_output.returncode < 0:
             QuitWithoutSaving()
-        flac_version = flac_output.stdout.decode('utf-8')[:-1]
-        flac_version = ConvertFlacVersionToVendorString(flac_version)
+        flac_version_str = flac_output.stdout.decode('utf-8')[:-1]
+        flac_version_str = ConvertFlacVersionToVendorString(flac_version_str)
     except subprocess.CalledProcessError as exc:
-        flac_error = str(exc)
+        Log(LogLevel.WARN, f"flac codec unavailable - cannot encode, decode, or test FLACs: {str(exc)}")
 
     try:
         metaflac_output = subprocess.run(['metaflac', '--version'], capture_output=True)
@@ -300,30 +300,25 @@ def CheckDependencies() -> None:
             QuitWithoutSaving()
         metaflac_version = metaflac_output.stdout.decode('utf-8')[:-1]
     except subprocess.CalledProcessError as exc:
-        metaflac_error = str(exc)
+        Log(LogLevel.WARN, f"metaflac unavailable - cannot adjust padding in FLACs: {str(exc)}")
 
     try:
         opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
         if opus_output.returncode < 0:
             QuitWithoutSaving()
-        opus_version = opus_output.stdout.decode('utf-8').split("\n")[0]
+        opus_version_str = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
-        opus_error = str(exc)
-
-    if not flac_version:
-        Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
-    if not metaflac_version:
-        Log(LogLevel.WARN, "metaflac unavailable - cannot adjust padding in FLACs: " + metaflac_error)
-    if not opus_version:
-        Log(LogLevel.WARN, "opus codec unavailable - cannot encode Opus files: " + opus_error)
+        Log(LogLevel.WARN, f"opus codec unavailable - cannot encode Opus files: {str(exc)}")
 
     Log(LogLevel.INFO, "Python version:   " + str(sys.version))
-    if flac_version:
-        Log(LogLevel.INFO, "flac version:     " + flac_version)
+    if flac_version_str:
+        Log(LogLevel.INFO, "flac version:     " + flac_version_str)
     if metaflac_version:
         Log(LogLevel.INFO, "metaflac version: " + metaflac_version)
-    if opus_version:
-        Log(LogLevel.INFO, "Opus version:     " + opus_version)
+    if opus_version_str:
+        Log(LogLevel.INFO, "Opus version:     " + opus_version_str)
+
+    return flac_version_str, opus_version_str
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
     global args
@@ -345,7 +340,7 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     if not flac_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
 
-    if not opus_version and args.func is mirror_library:
+    if not opus_version and args.func is mirror_library: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
@@ -353,7 +348,7 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
        os.stat(cfg["library_path"]).st_dev != os.stat(cfg["output_library_path"]).st_dev:
         Log(LogLevel.ERROR, "To use hard links the main library and portable library must reside on the same filesystem")
 
-def ValidateConfigPaths(config) -> bool:
+def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
 
     ok = True
 
@@ -377,7 +372,7 @@ def ValidateConfigPaths(config) -> bool:
 
     if config["library_path"] == "" or config["output_library_path"] == "":
         Log(LogLevel.WARN,
-            f"Library path and output library path must be configured in config.yaml",
+            "Library path and output library path must be configured in config.yaml",
             always_log=True)
         ok = False
 
@@ -450,7 +445,7 @@ def ValidateConfigPaths(config) -> bool:
     return ok
 
 @dataclass
-class DirEntry():
+class DirEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     present_in_last_scan: bool
     mirrored: bool
@@ -481,7 +476,7 @@ class DirEntry():
             self.present_in_current_scan = True
             self.mirrored = False
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad dir init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad dir init arguments")
 
         if cfg["log_full_paths"]:
             self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
@@ -506,7 +501,7 @@ class DirEntry():
         }
 
 @dataclass
-class FileEntry():
+class FileEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     fingerprint_on_last_scan: str
     fingerprint_on_last_mirror: str
@@ -539,7 +534,7 @@ class FileEntry():
             self.present_in_last_scan = True
             self.present_in_current_scan = True
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad file init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad file init arguments")
 
         if cfg["log_full_paths"]:
             self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
@@ -565,7 +560,7 @@ class FileEntry():
         }
 
 @dataclass
-class FlacEntry():
+class FlacEntry(): # pylint: disable=too-many-instance-attributes
     path: str
     fingerprint_on_last_scan: str
     present_in_last_scan: bool
@@ -623,7 +618,7 @@ class FlacEntry():
             self.present_in_last_scan = True
             self.present_in_current_scan = True
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad flac init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad flac init arguments")
 
         self.quoted_path = quote(self.library_path)
 
@@ -759,12 +754,11 @@ def AddColor(text, color='') -> str:
 
 def DetectPlaylist(file_path) -> bool:
     file_extension = file_path.split(".")[-1]
-    return file_extension == "m3u" or file_extension == "m3u8"
+    return file_extension in ('m3u', 'm3u8')
 
 def ConvertPlaylist(file_path, output_path, playlist_convert_str) -> bool:
     try:
-        possible_encodings = ["utf-8", "cp1252", "latin1"]
-        for encoding in possible_encodings:
+        for encoding in ('utf-8', 'cp1252', 'latin1'):
             try:
                 with open(file_path, 'r', encoding=encoding) as in_playlist:
                     data = in_playlist.read()
@@ -848,9 +842,21 @@ def ReencodeFlac(entry) -> bool:
 
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
-    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["target_padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
+    flac_args = ['flac',
+                 '--silent',
+                 '--best',
+                 '--verify',
+                 f'--padding={cfg["target_padding_size"]}',
+                 '--no-preserve-modtime',
+                 entry.library_path,
+                 '-o',
+                 tmp_path]
 
-    with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(flac_args,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -908,7 +914,11 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 
     metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
 
-    with subprocess.Popen(metaflac_args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(metaflac_args,
+                          text=True,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
@@ -980,7 +990,12 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
         Log(LogLevel.TRACE, f"Dry run: {repad_log}")
         return True, False
 
-    with subprocess.Popen(metaflac_args, shell=use_shell, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(metaflac_args,
+                          shell=use_shell,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -1031,9 +1046,19 @@ def TranscodeFlac(entry) -> bool:
         Log(LogLevel.TRACE, f"Dry run: {transcode_log}")
         return True, False
 
-    transcode_args = ['opusenc', '--quiet', '--music', '--bitrate', str(cfg["opus_bitrate"]), entry.library_path, entry.portable_path]
+    transcode_args = ['opusenc',
+                      '--quiet',
+                      '--music',
+                      '--bitrate',
+                      str(cfg["opus_bitrate"]),
+                      entry.library_path,
+                      entry.portable_path]
 
-    with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(transcode_args,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -1258,8 +1283,7 @@ def ScanLibrary() -> None:
         for file in files:
             full_path = os.path.join(root, file)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
-                file_extension = file.split(".")[-1]
-                if file_extension == "flac":
+                if file.split(".")[-1] == "flac":
                     flac_paths.append(full_path)
                 else:
                     non_flac_paths.append(full_path)
@@ -1292,13 +1316,12 @@ def ScanLibrary() -> None:
                 break
         for future in future_to_path:
             if not future.cancelled():
-                full_path = future_to_path[future]
                 is_new, test_ran, test_pass = future.result()
                 if test_ran and test_pass:
                     summary["num_tests_passed"] += 1
                 elif test_ran and not test_pass:
                     summary["num_tests_failed"] += 1
-                    summary["failed_flac_tests"].append(full_path)
+                    summary["failed_flac_tests"].append(future_to_path[future])
                 summary["num_new_flacs"] += 1 if is_new else 0
                 summary["num_flacs"] += 1
 
@@ -1938,9 +1961,7 @@ if __name__ == '__main__':
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
 
-    flac_version = "" # pylint: disable=invalid-name
-    opus_version = "" # pylint: disable=invalid-name
-    CheckDependencies()
+    flac_version, opus_version = CheckDependencies()
 
     ValidateDependencyConfigArgumentCombinations()
 
