@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+# pylint: disable=line-too-long
+# pylint: disable=no-else-return
+
 """
 Maintain a mirror image of a FLAC music library, transcoded to Opus.
 A fingerprint of each file is saved in `fingerprints.yaml`, allowing for incremental processing of only updated or new files.
 Run `./musicmirror --help` for options
 """
-
-# pylint: disable=no-else-return
 
 import argparse
 from collections import namedtuple
@@ -848,9 +849,21 @@ def ReencodeFlac(entry) -> bool:
 
     # Write to a temp file first, then overwrite if encoding successful
     tmp_path = entry.library_path + ".tmp"
-    flac_args = ['flac', '--silent', '--best', '--verify', f'--padding={cfg["target_padding_size"]}', '--no-preserve-modtime', entry.library_path, '-o', tmp_path]
+    flac_args = ['flac',
+                 '--silent',
+                 '--best',
+                 '--verify',
+                 f'--padding={cfg["target_padding_size"]}',
+                 '--no-preserve-modtime',
+                 entry.library_path,
+                 '-o',
+                 tmp_path]
 
-    with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(flac_args,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -908,7 +921,11 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 
     metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
 
-    with subprocess.Popen(metaflac_args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(metaflac_args,
+                          text=True,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
@@ -980,7 +997,12 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
         Log(LogLevel.TRACE, f"Dry run: {repad_log}")
         return True, False
 
-    with subprocess.Popen(metaflac_args, shell=use_shell, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(metaflac_args,
+                          shell=use_shell,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -1031,9 +1053,19 @@ def TranscodeFlac(entry) -> bool:
         Log(LogLevel.TRACE, f"Dry run: {transcode_log}")
         return True, False
 
-    transcode_args = ['opusenc', '--quiet', '--music', '--bitrate', str(cfg["opus_bitrate"]), entry.library_path, entry.portable_path]
+    transcode_args = ['opusenc',
+                      '--quiet',
+                      '--music',
+                      '--bitrate',
+                      str(cfg["opus_bitrate"]),
+                      entry.library_path,
+                      entry.portable_path]
 
-    with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
+    with subprocess.Popen(transcode_args,
+                          text=True,
+                          stdout=subprocess.DEVNULL,
+                          stderr=subprocess.PIPE,
+                          preexec_fn=SetUpChildSignals) as p:
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
