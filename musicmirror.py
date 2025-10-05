@@ -72,13 +72,13 @@ def SetThreadName() -> None:
         thread_num = thread_name.split('_')[-1].zfill(2)
         thread_info.name = f"WT{thread_num}"
 
-def Log(level, log) -> None:
+def Log(level, log, always_log=False) -> None:
     global cfg
     global print_lock
     global thread_info
 
     exit_early = False
-    if level <= cfg["log_level"]:
+    if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
 
         if not hasattr(thread_info, 'name'):
@@ -99,9 +99,8 @@ def Log(level, log) -> None:
             case _:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
-        print_lock.acquire()
-        print(full_log)
-        print_lock.release()
+        with print_lock: # pylint: disable=possibly-used-before-assignment
+            print(full_log)
 
         if exit_early:
             QuitWithoutSaving(1)
@@ -109,9 +108,7 @@ def Log(level, log) -> None:
 def ReadConfig(config_path) -> dict:
     global cfg
 
-    cfg["log_level"] = LogLevel.INFO
-
-    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}")
+    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True)
 
     with open(config_path, encoding="utf-8") as stream:
         try:
@@ -119,99 +116,105 @@ def ReadConfig(config_path) -> dict:
         except yaml.YAMLError as exc:
             Log(LogLevel.ERROR, str(exc))
 
-    Log(LogLevel.INFO, f"Configuration settings read from {config_path}")
+    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True)
 
     return cfg_dict
 
-def ValidateConfigDictKey(cfg, key_name, expected_type) -> bool:
-    if key_name in cfg:
-        if isinstance(cfg[key_name], expected_type):
+def ValidateConfigDictKey(config, key_name, expected_type) -> bool:
+    if key_name in config:
+        if isinstance(config[key_name], expected_type):
             return True
         else:
-            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(cfg[key_name])}")
+            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True)
             return False
     else:
-        Log(LogLevel.WARN, f"Config option {key_name} not found")
+        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True)
         return False
 
-def ValidateConfig(cfg) -> bool:
+def ValidateConfig(config) -> bool:
 
     ok = True
 
-    ok = ok and ValidateConfigDictKey(cfg, "log_level", str)
-    ok = ok and ValidateConfigDictKey(cfg, "library_status_path", str)
-    ok = ok and ValidateConfigDictKey(cfg, "library_path", str)
-    ok = ok and ValidateConfigDictKey(cfg, "output_library_path", str)
-    ok = ok and ValidateConfigDictKey(cfg, "library_playlist_path", str)
-    ok = ok and ValidateConfigDictKey(cfg, "portable_playlist_path", str)
-    ok = ok and ValidateConfigDictKey(cfg, "opus_bitrate", int)
-    ok = ok and ValidateConfigDictKey(cfg, "allow_library_modification", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "use_hash_as_fingerprint", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "num_threads", int)
-    ok = ok and ValidateConfigDictKey(cfg, "file_mirror_method", str)
-    ok = ok and ValidateConfigDictKey(cfg, "log_full_paths", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "ignore_hidden", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "check_padding", bool)
-    ok = ok and ValidateConfigDictKey(cfg, "min_padding_size", int)
-    ok = ok and ValidateConfigDictKey(cfg, "max_padding_size", int)
-    ok = ok and ValidateConfigDictKey(cfg, "target_padding_size", int)
+    ok = ok and ValidateConfigDictKey(config, "log_level", str)
+    ok = ok and ValidateConfigDictKey(config, "library_status_path", str)
+    ok = ok and ValidateConfigDictKey(config, "library_path", str)
+    ok = ok and ValidateConfigDictKey(config, "output_library_path", str)
+    ok = ok and ValidateConfigDictKey(config, "library_playlist_path", str)
+    ok = ok and ValidateConfigDictKey(config, "portable_playlist_path", str)
+    ok = ok and ValidateConfigDictKey(config, "opus_bitrate", int)
+    ok = ok and ValidateConfigDictKey(config, "allow_library_modification", bool)
+    ok = ok and ValidateConfigDictKey(config, "use_hash_as_fingerprint", bool)
+    ok = ok and ValidateConfigDictKey(config, "num_threads", int)
+    ok = ok and ValidateConfigDictKey(config, "file_mirror_method", str)
+    ok = ok and ValidateConfigDictKey(config, "log_full_paths", bool)
+    ok = ok and ValidateConfigDictKey(config, "ignore_hidden", bool)
+    ok = ok and ValidateConfigDictKey(config, "check_padding", bool)
+    ok = ok and ValidateConfigDictKey(config, "min_padding_size", int)
+    ok = ok and ValidateConfigDictKey(config, "max_padding_size", int)
+    ok = ok and ValidateConfigDictKey(config, "target_padding_size", int)
 
     if not ok:
         return False
 
-    ok = ValidateConfigPaths(cfg)
+    ok = ValidateConfigPaths(config)
 
-    if cfg["log_level"] == "error":
-        cfg["log_level"] = LogLevel.ERROR
-    elif cfg["log_level"] == "warn":
-        cfg["log_level"] = LogLevel.WARN
-    elif cfg["log_level"] == "info":
-        cfg["log_level"] = LogLevel.INFO
-    elif cfg["log_level"] == "debug":
-        cfg["log_level"] = LogLevel.DEBUG
-    elif cfg["log_level"] == "trace":
-        cfg["log_level"] = LogLevel.TRACE
+    if config["log_level"] == "error":
+        config["log_level"] = LogLevel.ERROR
+    elif config["log_level"] == "warn":
+        config["log_level"] = LogLevel.WARN
+    elif config["log_level"] == "info":
+        config["log_level"] = LogLevel.INFO
+    elif config["log_level"] == "debug":
+        config["log_level"] = LogLevel.DEBUG
+    elif config["log_level"] == "trace":
+        config["log_level"] = LogLevel.TRACE
     else:
-        Log(LogLevel.WARN, f"Invalid log level {cfg["log_level"]}")
+        Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
         ok = False
     if ok:
-        Log(LogLevel.INFO, f"Log level set to {cfg["log_level"]}")
+        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
-    if cfg["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, f"Opus bitrate must be a positive integer")
+    if config["opus_bitrate"] <= 0:
+        Log(LogLevel.WARN, f"Opus bitrate must be a positive integer", always_log=True)
         ok = False
 
-    if cfg["min_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Min flac padding size cannot be negative")
+    if config["min_padding_size"] < 0:
+        Log(LogLevel.WARN, f"Min flac padding size cannot be negative", always_log=True)
         ok = False
 
-    if cfg["max_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Max flac padding size cannot be negative")
+    if config["max_padding_size"] < 0:
+        Log(LogLevel.WARN, f"Max flac padding size cannot be negative", always_log=True)
         ok = False
 
-    if cfg["target_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Target flac padding size cannot be negative")
+    if config["target_padding_size"] < 0:
+        Log(LogLevel.WARN, f"Target flac padding size cannot be negative", always_log=True)
         ok = False
 
-    if cfg["min_padding_size"] > cfg["target_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than target_padding_size")
+    if config["min_padding_size"] > config["target_padding_size"]:
+        Log(LogLevel.WARN, f"min_padding_size cannot be greater than target_padding_size", always_log=True)
         ok = False
 
-    if cfg["min_padding_size"] > cfg["max_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size")
+    if config["min_padding_size"] > config["max_padding_size"]:
+        Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
-    if cfg["target_padding_size"] > cfg["max_padding_size"]:
-        Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size")
+    if config["target_padding_size"] > config["max_padding_size"]:
+        Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
-    if cfg["num_threads"] > os.process_cpu_count():
-        Log(LogLevel.WARN, f"Number of worker threads ({cfg["num_threads"]}) cannot exceed number of cores available to process ({os.process_cpu_count()})")
+    if config["num_threads"] > os.process_cpu_count():
+        Log(LogLevel.WARN,
+            f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({os.process_cpu_count()})",
+            always_log=True)
         ok = False
 
-    if cfg["file_mirror_method"] != "copy" and cfg["file_mirror_method"] != "soft_link" and cfg["file_mirror_method"] != "hard_link":
-        Log(LogLevel.WARN, f"Invalid file mirror method {cfg["file_mirror_method"]}. Supported options are copy, soft_link, hard_link")
+    if config["file_mirror_method"] != "copy" and \
+       config["file_mirror_method"] != "soft_link" and \
+       config["file_mirror_method"] != "hard_link":
+        Log(LogLevel.WARN,
+            f"Invalid file mirror method {config["file_mirror_method"]}. Supported options are copy, soft_link, hard_link",
+            always_log=True)
         ok = False
 
     return ok
@@ -219,7 +222,7 @@ def ValidateConfig(cfg) -> bool:
 def RestoreStdinAttr() -> None:
     global original_stdin_attr
 
-    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr)
+    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr) # pylint: disable=possibly-used-before-assignment
 
 def SaveAndQuit(exit_arg=None) -> None:
     WriteCache()
@@ -245,9 +248,8 @@ class GracefulExiter():
         signal_log = f"\nReceived signal {signal_name}; finishing processing"
         if signal.Signals(signum) == signal.SIGINT:
             signal_log += " (repeat to exit now)"
-        print_lock.acquire()
-        print(signal_log)
-        print_lock.release()
+        with print_lock:
+            print(signal_log)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         self.state = True
 
@@ -330,10 +332,10 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     global opus_version
     global test_specified
 
-    if test_specified and not flac_version:
+    if test_specified and not flac_version: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
-    if not cfg["allow_library_modification"] and args.func is reencode_library:
+    if not cfg["allow_library_modification"] and args.func is reencode_library: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "Config setting 'allow_library_modification' is disabled. Enable to allow reencoding of library")
 
     if not flac_version and args.func is reencode_library:
@@ -351,72 +353,98 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
        os.stat(cfg["library_path"]).st_dev != os.stat(cfg["output_library_path"]).st_dev:
         Log(LogLevel.ERROR, "To use hard links the main library and portable library must reside on the same filesystem")
 
-def ValidateConfigPaths(cfg) -> bool:
+def ValidateConfigPaths(config) -> bool:
 
     ok = True
 
-    cfg["library_status_path"] = os.path.expanduser(cfg["library_status_path"])
-    cfg["library_path"] = AppendPathSeparator(os.path.expanduser(cfg["library_path"]))
-    cfg["output_library_path"] = AppendPathSeparator(os.path.expanduser(cfg["output_library_path"]))
-    cfg["library_playlist_path"] = AppendPathSeparator(os.path.expanduser(cfg["library_playlist_path"]))
-    cfg["portable_playlist_path"] = AppendPathSeparator(os.path.expanduser(cfg["portable_playlist_path"]))
+    config["library_status_path"] = os.path.expanduser(config["library_status_path"])
+    config["library_path"] = AppendPathSeparator(os.path.expanduser(config["library_path"]))
+    config["output_library_path"] = AppendPathSeparator(os.path.expanduser(config["output_library_path"]))
+    config["library_playlist_path"] = AppendPathSeparator(os.path.expanduser(config["library_playlist_path"]))
+    config["portable_playlist_path"] = AppendPathSeparator(os.path.expanduser(config["portable_playlist_path"]))
 
-    cfg["formatted_library_status_path"] = FormatPath(cfg["library_status_path"])
-    cfg["formatted_library_path"] = FormatPath(cfg["library_path"], Colors.OKGREEN)
-    cfg["formatted_output_library_path"] = FormatPath(cfg["output_library_path"], Colors.OKBLUE)
-    cfg["formatted_library_playlist_path"] = FormatPath(cfg["library_playlist_path"], Colors.OKGREEN)
-    cfg["formatted_portable_playlist_path"] = FormatPath(cfg["portable_playlist_path"], Colors.OKBLUE)
+    config["formatted_library_status_path"] = FormatPath(config["library_status_path"])
+    config["formatted_library_path"] = FormatPath(config["library_path"], Colors.OKGREEN)
+    config["formatted_output_library_path"] = FormatPath(config["output_library_path"], Colors.OKBLUE)
+    config["formatted_library_playlist_path"] = FormatPath(config["library_playlist_path"], Colors.OKGREEN)
+    config["formatted_portable_playlist_path"] = FormatPath(config["portable_playlist_path"], Colors.OKBLUE)
 
-    library_status_path_obj = Path(cfg["library_status_path"])
-    library_path_obj = Path(cfg["library_path"])
-    output_library_path_obj = Path(cfg["output_library_path"])
-    library_playlist_path_obj = Path(cfg["library_playlist_path"])
-    portable_playlist_path_obj = Path(cfg["portable_playlist_path"])
+    library_status_path_obj = Path(config["library_status_path"])
+    library_path_obj = Path(config["library_path"])
+    output_library_path_obj = Path(config["output_library_path"])
+    library_playlist_path_obj = Path(config["library_playlist_path"])
+    portable_playlist_path_obj = Path(config["portable_playlist_path"])
 
-    if cfg["library_path"] == "" or cfg["output_library_path"] == "":
-        Log(LogLevel.WARN, f"Library path and output library path must be configured in config.yaml")
+    if config["library_path"] == "" or config["output_library_path"] == "":
+        Log(LogLevel.WARN,
+            f"Library path and output library path must be configured in config.yaml",
+            always_log=True)
         ok = False
 
     if not library_status_path_obj.is_file():
-        Log(LogLevel.WARN, f"Library status path {cfg["formatted_library_status_path"]} does not exist or is not a file")
+        Log(LogLevel.WARN,
+            f"Library status path {config["formatted_library_status_path"]} does not exist or is not a file",
+            always_log=True)
         ok = False
     if not library_path_obj.is_dir():
-        Log(LogLevel.WARN, f"Library path {cfg["formatted_library_path"]} does not exist or is not a directory")
+        Log(LogLevel.WARN,
+            f"Library path {config["formatted_library_path"]} does not exist or is not a directory",
+            always_log=True)
         ok = False
 
-    if cfg["output_library_path"] == cfg["library_path"]:
-        Log(LogLevel.WARN, f"Output library path {cfg["formatted_output_library_path"]} matches library path {cfg["formatted_library_path"]}")
+    if config["output_library_path"] == config["library_path"]:
+        Log(LogLevel.WARN,
+            f"Output library path {config["formatted_output_library_path"]} matches library path {config["formatted_library_path"]}",
+            always_log=True)
         ok = False
     if library_path_obj in output_library_path_obj.parents:
-        Log(LogLevel.WARN, f"Output library path {cfg["formatted_output_library_path"]} is inside library path {cfg["formatted_library_path"]}")
+        Log(LogLevel.WARN,
+            f"Output library path {config["formatted_output_library_path"]} is inside library path {config["formatted_library_path"]}",
+            always_log=True)
         ok = False
     if output_library_path_obj in library_path_obj.parents:
-        Log(LogLevel.WARN, f"Library path {cfg["formatted_library_path"]} is inside output library path {cfg["formatted_output_library_path"]}")
+        Log(LogLevel.WARN,
+            f"Library path {config["formatted_library_path"]} is inside output library path {config["formatted_output_library_path"]}",
+            always_log=True)
         ok = False
 
     if args.func is convert_playlists:
         if not library_playlist_path_obj.is_dir():
-            Log(LogLevel.WARN, f"Library playlist path {cfg["formatted_library_playlist_path"]} does not exist or is not a directory")
+            Log(LogLevel.WARN,
+                f"Library playlist path {config["formatted_library_playlist_path"]} does not exist or is not a directory",
+                always_log=True)
             ok = False
         if not portable_playlist_path_obj.is_dir():
-            Log(LogLevel.WARN, f"Portable playlist path {cfg["formatted_portable_playlist_path"]} does not exist or is not a directory")
+            Log(LogLevel.WARN,
+                f"Portable playlist path {config["formatted_portable_playlist_path"]} does not exist or is not a directory",
+                always_log=True)
             ok = False
 
-        if cfg["portable_playlist_path"] == cfg["library_playlist_path"]:
-            Log(LogLevel.WARN, f"Portable playlists path {cfg["formatted_portable_playlist_path"]} matches library playlist path {cfg["formatted_library_playlist_path"]}")
+        if config["portable_playlist_path"] == config["library_playlist_path"]:
+            Log(LogLevel.WARN,
+                f"Portable playlists path {config["formatted_portable_playlist_path"]} matches library playlist path {config["formatted_library_playlist_path"]}",
+                always_log=True)
             ok = False
         if library_playlist_path_obj in portable_playlist_path_obj.parents:
-            Log(LogLevel.WARN, f"Portable playlists path {cfg["formatted_portable_playlist_path"]} is inside library playlist path {cfg["formatted_library_playlist_path"]}")
+            Log(LogLevel.WARN,
+                f"Portable playlists path {config["formatted_portable_playlist_path"]} is inside library playlist path {config["formatted_library_playlist_path"]}",
+                always_log=True)
             ok = False
         if portable_playlist_path_obj in library_playlist_path_obj.parents:
-            Log(LogLevel.WARN, f"Library playlists path {cfg["formatted_library_playlist_path"]} is inside portable playlist path {cfg["formatted_portable_playlist_path"]}")
+            Log(LogLevel.WARN,
+                f"Library playlists path {config["formatted_library_playlist_path"]} is inside portable playlist path {config["formatted_portable_playlist_path"]}",
+                always_log=True)
             ok = False
 
-        if cfg["portable_playlist_path"] == cfg["output_library_path"]:
-            Log(LogLevel.WARN, f"Portable playlists path {cfg["formatted_portable_playlist_path"]} matches output library playlist path {cfg["formatted_output_library_path"]}")
+        if config["portable_playlist_path"] == config["output_library_path"]:
+            Log(LogLevel.WARN,
+                f"Portable playlists path {config["formatted_portable_playlist_path"]} matches output library playlist path {config["formatted_output_library_path"]}",
+                always_log=True)
             ok = False
         if output_library_path_obj in portable_playlist_path_obj.parents:
-            Log(LogLevel.WARN, f"Portable playlists path {cfg["formatted_portable_playlist_path"]} is inside output library path {cfg["formatted_output_library_path"]}")
+            Log(LogLevel.WARN,
+                f"Portable playlists path {config["formatted_portable_playlist_path"]} is inside output library path {config["formatted_output_library_path"]}",
+                always_log=True)
             ok = False
 
     return ok
@@ -704,7 +732,7 @@ def ReadCache() -> None:
 
     TimeCommand(start_time, "Reading library status", LogLevel.INFO)
 
-    flag.QuitWithoutSavingIfSignalled()
+    flag.QuitWithoutSavingIfSignalled() # pylint: disable=possibly-used-before-assignment
 
 def WriteCache() -> None:
     global cache
@@ -781,6 +809,7 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
 
     test_ran = False
     status = ""
+    # pylint: disable=possibly-used-before-assignment
     if (test_specified and is_new) or \
         ((test and (is_new or is_modified or not entry.fingerprint_on_last_test)) or \
          (retest_on_update and (fingerprint != entry.fingerprint_on_last_test or entry.flac_codec_on_last_test != flac_version)) or \
@@ -789,6 +818,7 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
         entry.fingerprint_on_last_test = fingerprint
         entry.flac_codec_on_last_test = flac_version
         test_ran = True
+    # pylint: enable=possibly-used-before-assignment
 
     return test_ran, entry.test_pass, status
 
@@ -1175,7 +1205,7 @@ def PrintScanSummary(summary, early_exit=False) -> None:
 def IsHiddenFile(path) -> bool:
     global is_windows
 
-    if is_windows:
+    if is_windows: # pylint: disable=possibly-used-before-assignment
         return bool(os.stat(path).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
     else:
         return os.path.basename(path).startswith(".")
@@ -1891,11 +1921,11 @@ if __name__ == '__main__':
     flag = GracefulExiter()
 
     cfg = {}
-    config = ReadConfig(CONFIG_FILE)
-    if ValidateConfig(config):
-        cfg = config
+    tmp_config = ReadConfig(CONFIG_FILE)
+    if ValidateConfig(tmp_config):
+        cfg = tmp_config
     else:
-        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}")
+        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True)
 
     if cfg["num_threads"] == 0:
         if sys.version_info >= (3, 13):
