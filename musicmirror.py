@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 
+"""
+Maintain a mirror image of a FLAC music library, transcoded to Opus.
+A fingerprint of each file is saved in `fingerprints.yaml`, allowing for incremental processing of only updated or new files.
+Run `./musicmirror --help` for options
+"""
+
 import argparse
+from collections import namedtuple
 import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -25,16 +32,17 @@ import yaml
 
 thread_info = local()
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD UNDERLINE')(
+    '\033[95m',
+    '\033[94m',
+    '\033[96m',
+    '\033[92m',
+    '\033[93m',
+    '\033[91m',
+    '\033[0m',
+    '\033[1m',
+    '\033[4m',
+)
 
 @total_ordering
 class LogLevel(Enum):
@@ -72,16 +80,16 @@ def Log(level, log) -> None:
 
         match level:
             case LogLevel.ERROR:
-                full_log = f"[{timestamp}][{thread_info.name}][{bcolors.FAIL}{bcolors.BOLD}ERROR{bcolors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{Colors.FAIL}{Colors.BOLD}ERROR{Colors.ENDC}] {log}"
                 exit_early = True
             case LogLevel.WARN:
-                full_log = f"[{timestamp}][{thread_info.name}][{bcolors.WARNING}{bcolors.BOLD}WARN{bcolors.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{Colors.WARNING}{Colors.BOLD}WARN{Colors.ENDC} ] {log}"
             case LogLevel.INFO:
-                full_log = f"[{timestamp}][{thread_info.name}][{bcolors.OKGREEN}INFO{bcolors.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKGREEN}INFO{Colors.ENDC} ] {log}"
             case LogLevel.DEBUG:
-                full_log = f"[{timestamp}][{thread_info.name}][{bcolors.OKBLUE}DEBUG{bcolors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKBLUE}DEBUG{Colors.ENDC}] {log}"
             case LogLevel.TRACE:
-                full_log = f"[{timestamp}][{thread_info.name}][{bcolors.OKCYAN}TRACE{bcolors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKCYAN}TRACE{Colors.ENDC}] {log}"
             case _:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
@@ -160,7 +168,7 @@ def ValidateConfig(cfg) -> bool:
     else:
         Log(LogLevel.WARN, f"Invalid log level {cfg["log_level"]}")
         ok = False
-    if (ok):
+    if ok:
         Log(LogLevel.INFO, f"Log level set to {cfg["log_level"]}")
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
@@ -348,10 +356,10 @@ def ValidateConfigPaths(cfg) -> bool:
     cfg["portable_playlist_path"] = AppendPathSeparator(os.path.expanduser(cfg["portable_playlist_path"]))
 
     cfg["formatted_library_status_path"] = FormatPath(cfg["library_status_path"])
-    cfg["formatted_library_path"] = FormatPath(cfg["library_path"], bcolors.OKGREEN)
-    cfg["formatted_output_library_path"] = FormatPath(cfg["output_library_path"], bcolors.OKBLUE)
-    cfg["formatted_library_playlist_path"] = FormatPath(cfg["library_playlist_path"], bcolors.OKGREEN)
-    cfg["formatted_portable_playlist_path"] = FormatPath(cfg["portable_playlist_path"], bcolors.OKBLUE)
+    cfg["formatted_library_path"] = FormatPath(cfg["library_path"], Colors.OKGREEN)
+    cfg["formatted_output_library_path"] = FormatPath(cfg["output_library_path"], Colors.OKBLUE)
+    cfg["formatted_library_playlist_path"] = FormatPath(cfg["library_playlist_path"], Colors.OKGREEN)
+    cfg["formatted_portable_playlist_path"] = FormatPath(cfg["portable_playlist_path"], Colors.OKBLUE)
 
     library_status_path_obj = Path(cfg["library_status_path"])
     library_path_obj = Path(cfg["library_path"])
@@ -442,16 +450,16 @@ class DirEntry():
             Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad dir init arguments")
 
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
         if args.func == mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(self.path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.path, Colors.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -500,16 +508,16 @@ class FileEntry():
             Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad file init arguments")
 
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
         if args.func == mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(self.path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.path, Colors.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -586,17 +594,17 @@ class FlacEntry():
         self.quoted_path = quote(self.library_path)
 
         if cfg["log_full_paths"]:
-            self.formatted_path = AddColor(self.quoted_path, bcolors.OKGREEN)
+            self.formatted_path = AddColor(self.quoted_path, Colors.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, bcolors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
 
         if args.func == mirror_library:
             relative_portable_path = self.path[:-5] + ".opus"
             self.portable_path = os.path.join(cfg["output_library_path"], relative_portable_path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(relative_portable_path, bcolors.OKBLUE)
+                self.formatted_portable_path = FormatPath(relative_portable_path, Colors.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -660,7 +668,7 @@ def TimeCommand(start_time, command_desc, time_log_level) -> None:
 def PrintFailureList(description, fail_list) -> None:
     for item in fail_list:
         description = f"{description}\n{item}"
-    Log(LogLevel.WARN, f"{bcolors.WARNING}{description}{bcolors.ENDC}")
+    Log(LogLevel.WARN, f"{Colors.WARNING}{description}{Colors.ENDC}")
 
 def ReadCache() -> None:
     global cache
@@ -678,13 +686,13 @@ def ReadCache() -> None:
             Log(LogLevel.ERROR, str(exc))
 
     if cache_dict:
-        if (cache_dict["dirs"]):
+        if cache_dict["dirs"]:
             for entry in cache_dict["dirs"].items():
                 cache.dirs.append(DirEntry(saved_entry=entry))
-        if (cache_dict["files"]):
+        if cache_dict["files"]:
             for entry in cache_dict["files"].items():
                 cache.files.append(FileEntry(saved_entry=entry))
-        if (cache_dict["flacs"]):
+        if cache_dict["flacs"]:
             for entry in cache_dict["flacs"].items():
                 cache.flacs.append(FlacEntry(saved_entry=entry))
 
@@ -708,11 +716,11 @@ def WriteCache() -> None:
     TimeCommand(start_time, "Writing library status", LogLevel.INFO)
 
 def FormatPath(path, color='') -> str:
-    color_reset = bcolors.ENDC if color else ''
+    color_reset = Colors.ENDC if color else ''
     return f'{color}{quote(path)}{color_reset}'
 
 def AddColor(text, color='') -> str:
-    color_reset = bcolors.ENDC if color else ''
+    color_reset = Colors.ENDC if color else ''
     return f'{color}{text}{color_reset}'
 
 def DetectPlaylist(file_path) -> bool:
@@ -753,7 +761,7 @@ def TestFlac(file_path) -> Tuple[bool, str]:
         test_error = test_result.stderr.decode("utf-8").split(".flac: ")[-1][:-1]
 
     if test_error:
-        status = f"{bcolors.WARNING}FLAC test failed:\n{test_error}{bcolors.ENDC}"
+        status = f"{Colors.WARNING}FLAC test failed:\n{test_error}{Colors.ENDC}"
         return False, status
     status = ""
     return True, status
@@ -826,8 +834,8 @@ def ReencodeFlac(entry) -> bool:
                     reencode_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
                 if errs:
                     reencode_log_level = LogLevel.WARN
-                    reencode_log += f"\n{bcolors.WARNING}FLAC reencode passed with warnings:" \
-                                    f"\n{errs.removesuffix('\n')}{bcolors.ENDC}"
+                    reencode_log += f"\n{Colors.WARNING}FLAC reencode passed with warnings:" \
+                                    f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
                 else:
                     reencode_log_level = LogLevel.DEBUG
                 Log(reencode_log_level, reencode_log)
@@ -837,12 +845,12 @@ def ReencodeFlac(entry) -> bool:
                 Path.unlink(tmp_path, missing_ok=True)
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
-                                       f"{bcolors.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{Colors.ENDC}")
                     return False
                 else:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
-                                       f"{bcolors.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -893,12 +901,12 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
-                                       f"{bcolors.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{Colors.ENDC}")
                     return False, RepadAction.NONE
                 else:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
-                                       f"{bcolors.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
                     return False, RepadAction.NONE
 
         except subprocess.TimeoutExpired:
@@ -954,8 +962,8 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                     repad_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
                 if errs:
                     repad_log_level = LogLevel.WARN
-                    repad_log += f"\n{bcolors.WARNING}FLAC repad passed with warnings:" \
-                                 f"\n{errs.removesuffix('\n')}{bcolors.ENDC}"
+                    repad_log += f"\n{Colors.WARNING}FLAC repad passed with warnings:" \
+                                 f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
                 else:
                     repad_log_level = LogLevel.DEBUG
                 Log(repad_log_level, repad_log)
@@ -964,12 +972,12 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{repad_log}\n" \
-                                       f"{bcolors.WARNING}FLAC repad terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}FLAC repad terminated by signal {-1 * p.returncode}{Colors.ENDC}")
                     return True, False
                 else:
                     Log(LogLevel.WARN, f"{repad_log}\n" \
-                                       f"{bcolors.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
                     return True, False
 
         except subprocess.TimeoutExpired:
@@ -999,8 +1007,8 @@ def TranscodeFlac(entry) -> bool:
 
                 if errs:
                     transcode_log_level = LogLevel.WARN
-                    transcode_log += f"\n{bcolors.WARNING}Transcode passed with warnings:" \
-                                     f"\n{errs.removesuffix('\n')}{bcolors.ENDC}"
+                    transcode_log += f"\n{Colors.WARNING}Transcode passed with warnings:" \
+                                     f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
                 else:
                     transcode_log_level = LogLevel.DEBUG
                 Log(transcode_log_level, transcode_log)
@@ -1009,12 +1017,12 @@ def TranscodeFlac(entry) -> bool:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
-                                       f"{bcolors.WARNING}Transcode terminated by signal {-1 * p.returncode}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}Transcode terminated by signal {-1 * p.returncode}{Colors.ENDC}")
                     return False
                 else:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
-                                       f"{bcolors.WARNING}Transcode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{bcolors.ENDC}")
+                                       f"{Colors.WARNING}Transcode failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -1138,8 +1146,8 @@ def PrintScanSummary(summary, early_exit=False) -> None:
         summary_log_level = LogLevel.WARN if summary["num_tests_failed"] > 0 else LogLevel.INFO
         num_tests = summary["num_tests_passed"] + summary["num_tests_failed"]
         pass_fail = f": {summary["num_tests_passed"]} passes, {summary["num_tests_failed"]} failures" if num_tests else ""
-        test_color = bcolors.WARNING if summary["num_tests_failed"] else bcolors.ENDC
-        test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{bcolors.ENDC}"
+        test_color = Colors.WARNING if summary["num_tests_failed"] else Colors.ENDC
+        test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         test_summary = ""
@@ -1210,12 +1218,12 @@ def ScanLibrary() -> None:
                 summary["num_dirs"] += 1
             if flag.Exit():
                 PrintScanSummary(summary, early_exit=True)
-    
+
         for file in files:
             full_path = os.path.join(root, file)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
                 file_extension = file.split(".")[-1]
-                if (file_extension == "flac"):
+                if file_extension == "flac":
                     flac_paths.append(full_path)
                 else:
                     non_flac_paths.append(full_path)
@@ -1345,7 +1353,7 @@ def ReencodeLibrary() -> None:
     reencode_result = "Library reencode interrupted:" if early_exit else "Library reencode complete:"
     if num_failed > 0:
         summary_log_level = LogLevel.WARN
-        reencode_fail = f"\n{bcolors.WARNING}{num_failed} not reencoded due to errors{bcolors.ENDC}"
+        reencode_fail = f"\n{Colors.WARNING}{num_failed} not reencoded due to errors{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         reencode_fail = ""
@@ -1414,7 +1422,7 @@ def RepadLibrary() -> None:
     repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
     if num_failed > 0:
         summary_log_level = LogLevel.WARN
-        repad_fail = f"\n{bcolors.WARNING}{num_failed} not repadded due to errors{bcolors.ENDC}"
+        repad_fail = f"\n{Colors.WARNING}{num_failed} not repadded due to errors{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
@@ -1464,7 +1472,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
             else:
-                if (os.path.isdir(entry.portable_path)):
+                if os.path.isdir(entry.portable_path):
                     shutil.rmtree(entry.portable_path)
                     Log(LogLevel.TRACE, deletion_str)
                 else:
@@ -1523,14 +1531,14 @@ def PrintMirrorAndTranscodeSummary(summary, early_exit=False) -> None:
 
     if summary["num_file_mirrors_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        mirror_fail = f"\n{bcolors.WARNING}Files failed to mirror:                   {summary["num_file_mirrors_failed"]}{bcolors.ENDC}"
+        mirror_fail = f"\n{Colors.WARNING}Files failed to mirror:                   {summary["num_file_mirrors_failed"]}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         mirror_fail = ""
 
     if summary["num_flac_transcodes_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        transcode_fail = f"\n{bcolors.WARNING}Flacs failed to transcode:                {summary["num_flac_transcodes_failed"]}{bcolors.ENDC}"
+        transcode_fail = f"\n{Colors.WARNING}Flacs failed to transcode:                {summary["num_flac_transcodes_failed"]}{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         transcode_fail = ""
@@ -1814,7 +1822,7 @@ def convert_playlists() -> None:
     Log(LogLevel.INFO, f"Converting playlists in {cfg["formatted_library_playlist_path"]}")
 
     # Simpler to recreate all playlists each run; surely no one has enough playlists that this takes time
-    if (os.path.isdir(cfg["portable_playlist_path"])):
+    if os.path.isdir(cfg["portable_playlist_path"]):
         shutil.rmtree(cfg["portable_playlist_path"])
 
     os.makedirs(cfg["portable_playlist_path"])
@@ -1823,10 +1831,10 @@ def convert_playlists() -> None:
         for file in files:
             file_path = os.path.join(root, file)
             relative_path = file_path[len(cfg["library_playlist_path"]):]
-            formatted_path = FormatPath(relative_path, bcolors.OKGREEN)
+            formatted_path = FormatPath(relative_path, Colors.OKGREEN)
             if DetectPlaylist(file_path):
                 output_path = os.path.join(cfg["portable_playlist_path"], relative_path)
-                playlist_convert_str = f"{formatted_path} -> {FormatPath(relative_path, bcolors.OKBLUE)}"
+                playlist_convert_str = f"{formatted_path} -> {FormatPath(relative_path, Colors.OKBLUE)}"
                 if args.dry_run:
                     Log(LogLevel.DEBUG, f"Dry run: {playlist_convert_str}")
                 else:
@@ -1845,7 +1853,7 @@ def scan_library() -> None:
 
 def list_cache():
     global args
-    
+
     ReadCache()
     if args.orphan_only:
         ListOrphanedEntries()
