@@ -22,6 +22,7 @@ from re import sub, MULTILINE
 from shlex import quote
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import termios
