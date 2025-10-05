@@ -855,8 +855,8 @@ class RepadAction(Enum):
     MERGE_AND_SORT = 1
     RESIZE         = 2
 
-# Returns whether successful and the repad action to take. If not successful, action is always NONE
 def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
+    """Return whether flac repad successful and the repad action to take. If not successful, action is always NONE"""
     repad_check_log = f"Padding check for {entry.formatted_path}"
 
     metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
@@ -905,8 +905,8 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
             Log(LogLevel.WARN, f"metaflac padding check subprocess for {repad_check_log} timed out")
             return False, RepadAction.NONE
 
-# Returns whether repad attempted and whether successful (either repad check or repad itself can fail)
 def RepadFlac(entry) -> Tuple[bool, bool]:
+    """Return whether flac repad attempted and whether successful (either repad check or repad itself can fail)"""
     repad_check_ok, repad_action = CheckIfRepadNecessary(entry)
 
     use_shell = False
@@ -978,8 +978,8 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             Log(LogLevel.WARN, f"Repad subprocess for {repad_log} timed out")
             return True, False
 
-# Returns whether successful
 def TranscodeFlac(entry) -> bool:
+    """Return whether flac->opus transcode successful"""
     transcode_log = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
 
     if args.dry_run:
@@ -1085,8 +1085,8 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
 
     return 1 if is_new_entry else 0
 
-# Return whether a new entry was created, whether a FLAC test was ran, and whether the test passed
 def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
+    """Return whether a new cache flac entry was created, whether a FLAC test was ran, and whether the test passed"""
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
 
