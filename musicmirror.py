@@ -1214,8 +1214,8 @@ def ScanLibrary() -> None:
     non_flac_paths = []
 
     for root, dirs, files in os.walk(cfg["library_path"]):
-        for dir in dirs:
-            full_path = os.path.join(root, dir)
+        for directory in dirs:
+            full_path = os.path.join(root, directory)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
                 summary["num_new_dirs"] += CreateOrUpdateCacheDirEntry(full_path)
                 summary["num_dirs"] += 1
