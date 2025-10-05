@@ -790,7 +790,7 @@ def TestFlac(file_path) -> Tuple[bool, str]:
     status = ""
     return True, status
 
-def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[bool, bool, str]:
+def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
     global flac_version
     global retest_on_update
     global test
@@ -800,15 +800,14 @@ def ConditionallyRunFlacTest(entry, is_new, is_modified, fingerprint) -> Tuple[b
     test_ran = False
     status = ""
     # pylint: disable=possibly-used-before-assignment
-    if (test_specified and is_new) or \
-        ((test and (is_new or is_modified or not entry.fingerprint_on_last_test)) or \
-         (retest_on_update and (fingerprint != entry.fingerprint_on_last_test or entry.flac_codec_on_last_test != flac_version)) or \
-         test_force):
+    test_due_to_change = test_specified and fingerprint != entry.fingerprint_on_last_test
+    retest_due_to_update = retest_on_update and entry.flac_codec_on_last_test != flac_version
+    if test_due_to_change or retest_due_to_update or test_force:
+    # pylint: enable=possibly-used-before-assignment
         entry.test_pass, status = TestFlac(entry.library_path)
         entry.fingerprint_on_last_test = fingerprint
         entry.flac_codec_on_last_test = flac_version
         test_ran = True
-    # pylint: enable=possibly-used-before-assignment
 
     return test_ran, entry.test_pass, status
 
@@ -1158,14 +1157,12 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
     relative_path = full_path[len(cfg["library_path"]):]
 
     is_new_entry = True
-    is_modified = False
     for entry in cache.flacs:
         if entry.path == relative_path:
             if fingerprint != entry.fingerprint_on_last_scan:
                 entry.fingerprint_on_last_scan = fingerprint
                 entry.reencode_ignore_last_fingerprint_change = False
                 entry.transcode_ignore_last_fingerprint_change = False
-                is_modified = True
                 entry_status = "Modified"
                 entry_log_level = LogLevel.DEBUG
             else:
@@ -1182,7 +1179,7 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
         entry = FlacEntry(full_path=full_path, rel_path=relative_path, fingerprint=fingerprint)
         cache.flacs.append(entry)
 
-    test_ran, test_pass, status = ConditionallyRunFlacTest(entry, is_new_entry, is_modified, fingerprint)
+    test_ran, test_pass, status = ConditionallyRunFlacTest(entry, fingerprint)
 
     if test_ran and not test_pass:
         entry_log_level = LogLevel.WARN
@@ -1383,12 +1380,14 @@ def ReencodeLibrary() -> None:
         for entry in cache.flacs:
             if entry.present_in_last_scan:
                 num_total += 1
+                reencode_for_change = args.reencode_on_change and \
+                                      entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode and \
+                                      not entry.reencode_ignore_last_fingerprint_change
+                reencode_for_update = args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_version
                 if args.force or \
                    not entry.fingerprint_on_last_reencode or \
-                   (args.reencode_on_change and \
-                    entry.fingerprint_on_last_scan != entry.fingerprint_on_last_reencode and \
-                    not entry.reencode_ignore_last_fingerprint_change) or \
-                   (args.reencode_on_update and entry.flac_codec_on_last_reencode != flac_version):
+                   reencode_for_change or \
+                   reencode_for_update:
                     future_to_entry[executor.submit(ReencodeFlac, entry)] = entry
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
