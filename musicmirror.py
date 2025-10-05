@@ -819,7 +819,7 @@ def ReencodeFlac(entry) -> bool:
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
                 shutil.move(tmp_path, entry.library_path)
 
@@ -949,7 +949,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
 
     with subprocess.Popen(metaflac_args, shell=use_shell, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
                 fingerprint = CalculateFingerprint(entry.library_path)
                 # Do not trigger an unnecessary reencode or transcode in a future run due to this repad
@@ -1002,7 +1002,7 @@ def TranscodeFlac(entry) -> bool:
 
     with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
 
                 entry.fingerprint_on_last_transcode = entry.fingerprint_on_last_scan
@@ -1214,8 +1214,8 @@ def ScanLibrary() -> None:
     non_flac_paths = []
 
     for root, dirs, files in os.walk(cfg["library_path"]):
-        for dir in dirs:
-            full_path = os.path.join(root, dir)
+        for directory in dirs:
+            full_path = os.path.join(root, directory)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
                 summary["num_new_dirs"] += CreateOrUpdateCacheDirEntry(full_path)
                 summary["num_dirs"] += 1
@@ -1386,11 +1386,13 @@ def RepadLibrary() -> None:
 
     Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
 
-    num_repadded = 0
-    num_padding_ok = 0
-    num_failed = 0
-    num_interrupted = 0
-    num_total = 0
+    summary = {
+        "num_repadded": 0,
+        "num_padding_ok": 0,
+        "num_failed": 0,
+        "num_interrupted": 0,
+        "num_total": 0
+    }
 
     failed_repads = []
 
@@ -1399,7 +1401,7 @@ def RepadLibrary() -> None:
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
-                num_total += 1
+                summary['num_total'] += 1
                 if args.force or \
                    args.force_repad or \
                    entry.fingerprint_on_last_scan != entry.fingerprint_on_last_repad:
@@ -1411,32 +1413,32 @@ def RepadLibrary() -> None:
                 break
         for future in future_to_entry:
             if future.cancelled():
-                num_interrupted += 1
+                summary['num_interrupted'] += 1
             else:
                 repad_attempted, command_successful = future.result()
                 if repad_attempted and command_successful:
-                    num_repadded += 1
+                    summary['num_repadded'] += 1
                 elif not repad_attempted and command_successful:
-                    num_padding_ok += 1
+                    summary['num_padding_ok'] += 1
                 else:
-                    num_failed += 1
+                    summary['num_failed'] += 1
                     failed_repads.append(future_to_entry[future].library_path)
 
     repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
-    if num_failed > 0:
+    if summary['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
-        repad_fail = f"\n{Colors.WARNING}{num_failed} not repadded due to errors{Colors.ENDC}"
+        repad_fail = f"\n{Colors.WARNING}{summary['num_failed']} not repadded due to errors{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
     if early_exit:
-        interrupted_summary = f"\n{num_interrupted} interrupted"
+        interrupted_summary = f"\n{summary['num_interrupted']} interrupted"
     else:
         interrupted_summary = ""
     Log(summary_log_level, f"{repad_result}\n" \
-                           f"{num_total} total FLACs\n" \
-                           f"{num_padding_ok} had acceptable padding\n" + \
-                           f"{num_repadded} repadded" + \
+                           f"{summary['num_total']} total FLACs\n" \
+                           f"{summary['num_padding_ok']} had acceptable padding\n" + \
+                           f"{summary['num_repadded']} repadded" + \
                            repad_fail + \
                            interrupted_summary)
 
@@ -1830,7 +1832,7 @@ def convert_playlists() -> None:
 
     os.makedirs(cfg["portable_playlist_path"])
 
-    for root, dirs, files in os.walk(cfg["library_playlist_path"]):
+    for root, _dirs, files in os.walk(cfg["library_playlist_path"]):
         for file in files:
             file_path = os.path.join(root, file)
             relative_path = file_path[len(cfg["library_playlist_path"]):]
