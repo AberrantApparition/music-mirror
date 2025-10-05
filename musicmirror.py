@@ -254,12 +254,6 @@ class GracefulExiter():
         if self.Exit():
             QuitWithoutSaving(exit_arg)
 
-def SetUpChildSignals() -> None:
-    # Ignore these signals in child processes to avoid leaving temp files around if in the middle of a transcode/reencode
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    signal.signal(signal.SIGTERM, signal.SIG_IGN)
-
 # Leave the date off the end of the vendor string; cannot get the date without manually making a big version->date map
 def ConvertFlacVersionToVendorString(version) -> str:
     version_number = version.split(' ')[1]
@@ -746,7 +740,7 @@ def TestFlac(file_path) -> Tuple[bool, str]:
                           text=True,
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE,
-                          preexec_fn=SetUpChildSignals) as p:
+                          start_new_session=True) as p: # New process group to ignore signals
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -811,7 +805,7 @@ def ReencodeFlac(entry) -> bool:
                           text=True,
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE,
-                          preexec_fn=SetUpChildSignals) as p:
+                          start_new_session=True) as p: # New process group to ignore signals
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -870,7 +864,7 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
                           text=True,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
-                          preexec_fn=SetUpChildSignals) as p:
+                          start_new_session=True) as p: # New process group to ignore signals
         try:
             outs, errs = p.communicate(timeout=60)
             if p.returncode == 0:
@@ -943,7 +937,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                           text=True,
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE,
-                          preexec_fn=SetUpChildSignals) as p:
+                          start_new_session=True) as p: # New process group to ignore signals
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
@@ -1003,7 +997,7 @@ def TranscodeFlac(entry) -> bool:
                           text=True,
                           stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE,
-                          preexec_fn=SetUpChildSignals) as p:
+                          start_new_session=True) as p: # New process group to ignore signals
         try:
             errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
