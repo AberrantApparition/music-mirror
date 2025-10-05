@@ -21,14 +21,13 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - Only supports FLAC and Opus
 - No extra processing is done on FLAC tags once transcoded to Opus. For example, ReplayGain tags will not be updated to R128_*_GAIN tags. Use a tool like `rsgain` to update ReplayGain tags after running MusicMirror
 - Not tested on Windows or Mac (though it is designed to work cross-platform)
-- Will reencode on any change to flac file, even if a reencode is not necessary. This will be fixed at some point
 
 ## Requirements
 - Python 3.10 or higher (last tested with 3.13)
-- `PyYaml`
-- To encode and test FLAC files: `flac`
-- To adjust padding in FLAC files: `metaflac`
-- To encode Opus: `opusenc`
+- `PyYaml` to read and write yaml config files
+- `flac` to encode and test FLAC files
+- `metaflac` to adjust padding in FLAC files
+- `opusenc` to encode Opus
 
 ## Setup
 1. Install PyYaml:
