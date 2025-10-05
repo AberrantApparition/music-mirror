@@ -243,7 +243,7 @@ class GracefulExiter():
         signal.signal(signal.SIGHUP, self.ChangeState)
         signal.signal(signal.SIGTERM, self.ChangeState)
 
-    def ChangeState(self, signum, frame) -> None:
+    def ChangeState(self, signum, _frame) -> None:
         global print_lock
 
         signal_name = signal.Signals(signum).name
