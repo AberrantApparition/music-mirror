@@ -1354,19 +1354,33 @@ def ReencodeLibrary() -> None:
 
 def PrintRepadSummary(stats, early_exit) -> None:
     repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
+
+    if stats['num_not_checked'] > 0:
+        not_checked_summary = f"{stats['num_not_checked']} not checked for padding\n"
+    else:
+        not_checked_summary = ""
+
+    if stats['num_padding_ok'] > 0:
+        checked_summary = f"{stats['num_padding_ok']} checked and had acceptable padding\n"
+    else:
+        checked_summary = ""
+
     if stats['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
         repad_fail = f"\n{Colors.WARNING}{stats['num_failed']} not repadded due to errors{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
+
     if early_exit:
         interrupted_summary = f"\n{stats['num_interrupted']} interrupted"
     else:
         interrupted_summary = ""
+
     Log(summary_log_level, f"{repad_result}\n" \
-                           f"{stats['num_total']} total FLACs\n" \
-                           f"{stats['num_padding_ok']} had acceptable padding\n" + \
+                           f"{stats['num_total']} total FLACs\n" + \
+                           not_checked_summary + \
+                           checked_summary + \
                            f"{stats['num_repadded']} repadded" + \
                            repad_fail + \
                            interrupted_summary)
@@ -1382,6 +1396,7 @@ def RepadLibrary() -> None:
     Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
 
     stats = {
+        "num_not_checked": 0,
         "num_repadded": 0,
         "num_padding_ok": 0,
         "num_failed": 0,
@@ -1405,6 +1420,7 @@ def RepadLibrary() -> None:
                 executor.shutdown(wait=True, cancel_futures=True)
                 early_exit = True
                 break
+        stats['num_not_checked'] = stats['num_total'] - len(future_to_entry)
         for future, entry in future_to_entry.items():
             if future.cancelled():
                 stats['num_interrupted'] += 1
