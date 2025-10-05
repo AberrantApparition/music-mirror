@@ -177,31 +177,31 @@ def ValidateConfig(config) -> bool:
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, f"Opus bitrate must be a positive integer", always_log=True)
+        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True)
         ok = False
 
     if config["min_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Min flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["max_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Max flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["target_padding_size"] < 0:
-        Log(LogLevel.WARN, f"Target flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["target_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than target_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, f"min_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["target_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
@@ -378,7 +378,7 @@ def ValidateConfigPaths(config) -> bool:
 
     if config["library_path"] == "" or config["output_library_path"] == "":
         Log(LogLevel.WARN,
-            f"Library path and output library path must be configured in config.yaml",
+            "Library path and output library path must be configured in config.yaml",
             always_log=True)
         ok = False
 
@@ -482,7 +482,7 @@ class DirEntry():
             self.present_in_current_scan = True
             self.mirrored = False
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad dir init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad dir init arguments")
 
         if cfg["log_full_paths"]:
             self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
@@ -540,7 +540,7 @@ class FileEntry():
             self.present_in_last_scan = True
             self.present_in_current_scan = True
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad file init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad file init arguments")
 
         if cfg["log_full_paths"]:
             self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
@@ -624,7 +624,7 @@ class FlacEntry():
             self.present_in_last_scan = True
             self.present_in_current_scan = True
         else:
-            Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: bad flac init arguments")
+            Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad flac init arguments")
 
         self.quoted_path = quote(self.library_path)
 
