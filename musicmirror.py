@@ -819,7 +819,7 @@ def ReencodeFlac(entry) -> bool:
 
     with subprocess.Popen(flac_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
                 shutil.move(tmp_path, entry.library_path)
 
@@ -949,7 +949,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
 
     with subprocess.Popen(metaflac_args, shell=use_shell, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
                 fingerprint = CalculateFingerprint(entry.library_path)
                 # Do not trigger an unnecessary reencode or transcode in a future run due to this repad
@@ -1002,7 +1002,7 @@ def TranscodeFlac(entry) -> bool:
 
     with subprocess.Popen(transcode_args, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, preexec_fn=SetUpChildSignals) as p:
         try:
-            outs, errs = p.communicate(timeout=60)
+            errs = p.communicate(timeout=60)[1]
             if p.returncode == 0:
 
                 entry.fingerprint_on_last_transcode = entry.fingerprint_on_last_scan
@@ -1830,7 +1830,7 @@ def convert_playlists() -> None:
 
     os.makedirs(cfg["portable_playlist_path"])
 
-    for root, dirs, files in os.walk(cfg["library_playlist_path"]):
+    for root, _dirs, files in os.walk(cfg["library_playlist_path"]):
         for file in files:
             file_path = os.path.join(root, file)
             relative_path = file_path[len(cfg["library_playlist_path"]):]
