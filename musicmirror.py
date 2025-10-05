@@ -2,6 +2,7 @@
 
 # pylint: disable=invalid-name
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 # pylint: disable=no-else-return
 
 """
@@ -53,7 +54,7 @@ Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 )
 
 @total_ordering
-class LogLevel(Enum):
+class LogLevel(Enum): # pylint: disable=missing-class-docstring
     ERROR = 0
     WARN  = 1
     INFO  = 2
@@ -850,7 +851,7 @@ def ReencodeFlac(entry) -> bool:
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False
 
-class RepadAction(Enum):
+class RepadAction(Enum): # pylint: disable=missing-class-docstring
     NONE           = 0
     MERGE_AND_SORT = 1
     RESIZE         = 2
