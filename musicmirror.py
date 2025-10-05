@@ -65,8 +65,6 @@ class LogLevel(Enum):
         return NotImplemented
 
 def SetThreadName() -> None:
-    global thread_info
-
     thread_name = current_thread().name
     if thread_name == "MainThread":
         thread_info.name = "Main"
@@ -75,10 +73,6 @@ def SetThreadName() -> None:
         thread_info.name = f"WT{thread_num}"
 
 def Log(level, log, always_log=False) -> None:
-    global cfg
-    global print_lock
-    global thread_info
-
     exit_early = False
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
@@ -108,8 +102,6 @@ def Log(level, log, always_log=False) -> None:
             QuitWithoutSaving(1)
 
 def ReadConfig(config_path) -> dict:
-    global cfg
-
     Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True)
 
     with open(config_path, encoding="utf-8") as stream:
@@ -134,7 +126,6 @@ def ValidateConfigDictKey(config, key_name, expected_type) -> bool:
         return False
 
 def ValidateConfig(config) -> bool:
-
     ok = True
 
     ok = ok and ValidateConfigDictKey(config, "log_level", str)
@@ -223,8 +214,6 @@ def ValidateConfig(config) -> bool:
     return ok
 
 def RestoreStdinAttr() -> None:
-    global original_stdin_attr
-
     termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr) # pylint: disable=possibly-used-before-assignment
 
 def SaveAndQuit(exit_arg=None) -> None:
@@ -245,8 +234,6 @@ class GracefulExiter():
         signal.signal(signal.SIGTERM, self.ChangeState)
 
     def ChangeState(self, signum, _frame) -> None:
-        global print_lock
-
         signal_name = signal.Signals(signum).name
         signal_log = f"\nReceived signal {signal_name}; finishing processing"
         if signal.Signals(signum) == signal.SIGINT:
@@ -284,8 +271,6 @@ def AppendPathSeparator(path) -> str:
     return path
 
 def CheckDependencies() -> Tuple[str, str]:
-    global cfg
-
     try:
         flac_output = subprocess.run(['flac', '--version'], capture_output=True, check=True)
         flac_version_str = flac_output.stdout.decode('utf-8')[:-1]
@@ -322,12 +307,6 @@ def CheckDependencies() -> Tuple[str, str]:
     return flac_version_str, opus_version_str
 
 def ValidateDependencyConfigArgumentCombinations() -> None:
-    global args
-    global cfg
-    global flac_version
-    global opus_version
-    global test_specified
-
     if test_specified and not flac_version: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.ERROR, "flac codec unavailable to test FLACs with")
 
@@ -350,7 +329,6 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
         Log(LogLevel.ERROR, "To use hard links the main library and portable library must reside on the same filesystem")
 
 def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
-
     ok = True
 
     config["library_status_path"] = os.path.expanduser(config["library_status_path"])
@@ -459,9 +437,6 @@ class DirEntry(): # pylint: disable=too-many-instance-attributes
     present_in_current_scan: bool
 
     def __init__(self, saved_entry=None, full_path=None, rel_path=None) -> None:
-        global args
-        global cfg
-
         if saved_entry is not None:
             # Entry created from cache
             self.path = AppendPathSeparator(saved_entry[0])
@@ -516,9 +491,6 @@ class FileEntry(): # pylint: disable=too-many-instance-attributes
     present_in_current_scan: bool
 
     def __init__(self, saved_entry=None, full_path=None, rel_path=None, fingerprint=None) -> None:
-        global args
-        global cfg
-
         if saved_entry is not None:
             # Entry created from cache
             self.path = saved_entry[0]
@@ -585,9 +557,6 @@ class FlacEntry(): # pylint: disable=too-many-instance-attributes
     present_in_current_scan: bool
 
     def __init__(self, saved_entry=None, full_path=None, rel_path=None, fingerprint=None) -> None:
-        global args
-        global cfg
-
         if saved_entry is not None:
             # Entry created from cache
             self.path = saved_entry[0]
@@ -702,7 +671,6 @@ def PrintFailureList(description, fail_list) -> None:
 
 def ReadCache() -> None:
     global cache
-    global cfg
 
     start_time = time()
     cache = Cache()
@@ -731,9 +699,6 @@ def ReadCache() -> None:
     flag.QuitWithoutSavingIfSignalled() # pylint: disable=possibly-used-before-assignment
 
 def WriteCache() -> None:
-    global cache
-    global cfg
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Saving library status to {cfg["formatted_library_status_path"]}")
@@ -798,12 +763,6 @@ def TestFlac(file_path) -> Tuple[bool, str]:
             return False, status
 
 def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
-    global flac_version
-    global retest_on_update
-    global test
-    global test_force
-    global test_specified
-
     test_ran = False
     status = ""
     # pylint: disable=possibly-used-before-assignment
@@ -823,8 +782,6 @@ def CalculateFileHash(file_path) -> str:
         return file_digest(f, 'sha224').hexdigest()
 
 def CalculateFingerprint(file_path) -> str:
-    global cfg
-
     if cfg["use_hash_as_fingerprint"]:
         return CalculateFileHash(file_path)
     else:
@@ -832,10 +789,6 @@ def CalculateFingerprint(file_path) -> str:
 
 # Returns whether successful
 def ReencodeFlac(entry) -> bool:
-    global cfg
-    global flac_version
-    global LOG_PREFIX_INDENT
-
     reencode_log = f"Reencode {entry.formatted_path}"
 
     if args.dry_run:
@@ -909,9 +862,6 @@ class RepadAction(Enum):
 
 # Returns whether successful and the repad action to take. If not successful, action is always NONE
 def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
-    global cfg
-    global LOG_PREFIX_INDENT
-
     repad_check_log = f"Padding check for {entry.formatted_path}"
 
     metaflac_args = ['metaflac', '--list', '--block-type=PADDING', entry.library_path]
@@ -962,9 +912,6 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 
 # Returns whether repad attempted and whether successful (either repad check or repad itself can fail)
 def RepadFlac(entry) -> Tuple[bool, bool]:
-    global cfg
-    global LOG_PREFIX_INDENT
-
     repad_check_ok, repad_action = CheckIfRepadNecessary(entry)
 
     use_shell = False
@@ -1038,9 +985,6 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
 
 # Returns whether successful
 def TranscodeFlac(entry) -> bool:
-    global cfg
-    global opus_version
-
     transcode_log = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
 
     if args.dry_run:
@@ -1092,9 +1036,6 @@ def TranscodeFlac(entry) -> bool:
             return False
 
 def CreateOrUpdateCacheDirEntry(full_path) -> int:
-    global cache
-    global cfg
-
     relative_path = AppendPathSeparator(full_path[len(cfg["library_path"]):])
 
     is_new_entry = True
@@ -1118,10 +1059,6 @@ def CreateOrUpdateCacheDirEntry(full_path) -> int:
     return 1 if is_new_entry else 0
 
 def CreateOrUpdateCacheFileEntry(full_path) -> int:
-    global cache
-    global cfg
-    global LOG_PREFIX_INDENT
-
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
 
@@ -1155,10 +1092,6 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
 
 # Return whether a new entry was created, whether a FLAC test was ran, and whether the test passed
 def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
-    global cache
-    global cfg
-    global LOG_PREFIX_INDENT
-
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
 
@@ -1200,8 +1133,6 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
     return is_new_entry, test_ran, test_pass
 
 def PrintScanSummary(summary, early_exit=False) -> None:
-    global test_specified
-
     if test_specified:
         summary_log_level = LogLevel.WARN if summary["num_tests_failed"] > 0 else LogLevel.INFO
         num_tests = summary["num_tests_passed"] + summary["num_tests_failed"]
@@ -1227,8 +1158,6 @@ def PrintScanSummary(summary, early_exit=False) -> None:
         SaveAndQuit()
 
 def IsHiddenFile(path) -> bool:
-    global is_windows
-
     if is_windows: # pylint: disable=possibly-used-before-assignment
         return bool(os.stat(path).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
     else:
@@ -1244,12 +1173,6 @@ def IsHiddenFileOrPath(full_path) -> bool:
     return False
 
 def ScanLibrary() -> None:
-    global args
-    global cache
-    global cfg
-    global flag
-    global test_specified
-
     start_time = time()
 
     scan_test_log = "Scanning and testing library" if test_specified else "Scanning library"
@@ -1329,8 +1252,6 @@ def ScanLibrary() -> None:
     TimeCommand(start_time, scan_test_log, LogLevel.INFO)
 
 def CheckForOrphanedCache() -> None:
-    global cache
-
     start_time = time()
 
     num_orphaned_dirs = 0
@@ -1364,11 +1285,6 @@ def CheckForOrphanedCache() -> None:
     TimeCommand(start_time, "Checking for orphaned status entries", LogLevel.INFO)
 
 def ReencodeLibrary() -> None:
-    global args
-    global cache
-    global cfg
-    global flac_version
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Reencoding FLACs in {cfg["formatted_library_path"]}")
@@ -1435,10 +1351,6 @@ def ReencodeLibrary() -> None:
     TimeCommand(start_time, "Reencoding library", LogLevel.INFO)
 
 def RepadLibrary() -> None:
-    global args
-    global cache
-    global cfg
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
@@ -1513,10 +1425,6 @@ def RemoveElementsFromSequence(sequence, element_indexes) -> None:
         sequence.pop(index)
 
 def RemoveOrphanedFilesFromPortable() -> None:
-    global args
-    global cache
-    global cfg
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Removing orphaned files from {cfg["formatted_output_library_path"]}")
@@ -1586,9 +1494,6 @@ def RemoveOrphanedFilesFromPortable() -> None:
     TimeCommand(start_time, "Removing orphaned files", LogLevel.INFO)
 
 def PrintMirrorAndTranscodeSummary(summary, early_exit=False) -> None:
-    global cache
-    global flag
-
     mirror_and_transcode_result = "File mirroring/transcoding interrupted:" if early_exit else "File mirroring/transcoding complete:"
 
     if summary["num_file_mirrors_failed"] > 0:
@@ -1622,8 +1527,6 @@ def PrintMirrorAndTranscodeSummary(summary, early_exit=False) -> None:
         SaveAndQuit()
 
 def MirrorFile(entry) -> bool:
-    global cfg
-
     file_mirror_str = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
     if args.dry_run:
         Log(LogLevel.DEBUG, f"Dry run: {file_mirror_str}")
@@ -1653,11 +1556,6 @@ def MirrorFile(entry) -> bool:
     return True
 
 def MirrorLibrary() -> None:
-    global args
-    global cache
-    global cfg
-    global opus_version
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Mirroring/transcoding files to portable library {cfg["formatted_output_library_path"]}")
@@ -1746,9 +1644,6 @@ def MirrorLibrary() -> None:
     TimeCommand(start_time, "Mirroring/transcoding files", LogLevel.INFO)
 
 def ListOrphanedEntries() -> None:
-    global cache
-    global cfg
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Listing orphaned files to be removed from {cfg["formatted_output_library_path"]}")
@@ -1783,9 +1678,6 @@ def ListOrphanedEntries() -> None:
     TimeCommand(start_time, "Listing orphaned status entries", LogLevel.INFO)
 
 def ListEntries() -> None:
-    global cache
-    global cfg
-
     start_time = time()
 
     Log(LogLevel.INFO, f"Listing all scanned files in {cfg["formatted_library_path"]}")
@@ -1855,9 +1747,6 @@ def ParseArgs() -> argparse.Namespace:
     return parser.parse_args()
 
 def reencode_library() -> None:
-    global args
-    global cfg
-
     ReadCache()
     if not args.skip_scan:
         ScanLibrary()
@@ -1868,8 +1757,6 @@ def reencode_library() -> None:
     WriteCache()
 
 def mirror_library() -> None:
-    global args
-
     ReadCache()
     if not args.skip_scan:
         ScanLibrary()
@@ -1879,8 +1766,6 @@ def mirror_library() -> None:
     WriteCache()
 
 def convert_playlists() -> None:
-    global cfg
-
     Log(LogLevel.INFO, f"Converting playlists in {cfg["formatted_library_playlist_path"]}")
 
     # Simpler to recreate all playlists each run; surely no one has enough playlists that this takes time
@@ -1914,8 +1799,6 @@ def scan_library() -> None:
     WriteCache()
 
 def list_cache():
-    global args
-
     ReadCache()
     if args.orphan_only:
         ListOrphanedEntries()
