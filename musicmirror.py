@@ -30,6 +30,9 @@ from time import time
 from typing import Tuple, Dict, Union
 import yaml
 
+CONFIG_FILE = "config.yaml"
+LOG_PREFIX_INDENT = "                               "
+
 thread_info = local()
 
 Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD UNDERLINE')(
@@ -802,7 +805,7 @@ def CalculateFingerprint(file_path) -> str:
 def ReencodeFlac(entry) -> bool:
     global cfg
     global flac_version
-    global log_prefix_indent
+    global LOG_PREFIX_INDENT
 
     reencode_log = f"Reencode {entry.formatted_path}"
 
@@ -831,7 +834,7 @@ def ReencodeFlac(entry) -> bool:
                 entry.flac_codec_on_last_reencode = flac_version
 
                 if cfg["log_level"] >= LogLevel.TRACE:
-                    reencode_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
+                    reencode_log += f"\n{LOG_PREFIX_INDENT}    New fingerprint: {fingerprint}"
                 if errs:
                     reencode_log_level = LogLevel.WARN
                     reencode_log += f"\n{Colors.WARNING}FLAC reencode passed with warnings:" \
@@ -866,7 +869,7 @@ class RepadAction(Enum):
 # Returns whether successful and the repad action to take. If not successful, action is always NONE
 def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
     global cfg
-    global log_prefix_indent
+    global LOG_PREFIX_INDENT
 
     repad_check_log = f"Padding check for {entry.formatted_path}"
 
@@ -886,15 +889,15 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 
                 if total_padding_size_bytes > cfg["max_padding_size"] or total_padding_size_bytes < cfg["min_padding_size"]:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
-                                        f"{log_prefix_indent}flac has {total_padding_size_bytes} bytes of padding")
+                                        f"{LOG_PREFIX_INDENT}flac has {total_padding_size_bytes} bytes of padding")
                     return True, RepadAction.RESIZE
                 elif num_padding_blocks > 1:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
-                                        f"{log_prefix_indent}flac has {num_padding_blocks} padding blocks")
+                                        f"{LOG_PREFIX_INDENT}flac has {num_padding_blocks} padding blocks")
                     return True, RepadAction.MERGE_AND_SORT
                 elif not '  is last: true' in outlines:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
-                                        f"{log_prefix_indent}flac padding is not last block")
+                                        f"{LOG_PREFIX_INDENT}flac padding is not last block")
                     return True, RepadAction.MERGE_AND_SORT
                 else:
                     return True, RepadAction.NONE
@@ -916,7 +919,7 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 # Returns whether repad attempted and whether successful (either repad check or repad itself can fail)
 def RepadFlac(entry) -> Tuple[bool, bool]:
     global cfg
-    global log_prefix_indent
+    global LOG_PREFIX_INDENT
 
     repad_check_ok, repad_action = CheckIfRepadNecessary(entry)
 
@@ -959,7 +962,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                 entry.fingerprint_on_last_repad = fingerprint
 
                 if cfg["log_level"] >= LogLevel.TRACE:
-                    repad_log += f"\n{log_prefix_indent}    New fingerprint: {fingerprint}"
+                    repad_log += f"\n{LOG_PREFIX_INDENT}    New fingerprint: {fingerprint}"
                 if errs:
                     repad_log_level = LogLevel.WARN
                     repad_log += f"\n{Colors.WARNING}FLAC repad passed with warnings:" \
@@ -1058,7 +1061,7 @@ def CreateOrUpdateCacheDirEntry(full_path) -> int:
 def CreateOrUpdateCacheFileEntry(full_path) -> int:
     global cache
     global cfg
-    global log_prefix_indent
+    global LOG_PREFIX_INDENT
 
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
@@ -1086,7 +1089,7 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
 
     entry_log = f"{entry.formatted_path} ({entry_status})"
     if cfg["log_level"] >= LogLevel.TRACE:
-        entry_log += f"\n{log_prefix_indent}    Fingerprint: {fingerprint}"
+        entry_log += f"\n{LOG_PREFIX_INDENT}    Fingerprint: {fingerprint}"
     Log(entry_log_level, entry_log)
 
     return 1 if is_new_entry else 0
@@ -1095,7 +1098,7 @@ def CreateOrUpdateCacheFileEntry(full_path) -> int:
 def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
     global cache
     global cfg
-    global log_prefix_indent
+    global LOG_PREFIX_INDENT
 
     fingerprint = CalculateFingerprint(full_path)
     relative_path = full_path[len(cfg["library_path"]):]
@@ -1132,9 +1135,9 @@ def CreateOrUpdateCacheFlacEntry(full_path) -> Tuple[bool, bool, bool]:
 
     entry_log = f"{entry.formatted_path} ({entry_status})"
     if cfg["log_level"] >= LogLevel.TRACE:
-        entry_log += f"\n{log_prefix_indent}    Fingerprint: {fingerprint}"
+        entry_log += f"\n{LOG_PREFIX_INDENT}    Fingerprint: {fingerprint}"
     if test_ran and status:
-        entry_log += f"\n{log_prefix_indent}    {status}"
+        entry_log += f"\n{LOG_PREFIX_INDENT}    {status}"
     Log(entry_log_level, entry_log)
 
     return is_new_entry, test_ran, test_pass
@@ -1868,8 +1871,6 @@ if __name__ == '__main__':
 
     print_lock = Lock()
 
-    log_prefix_indent = "                               "
-
     args = ParseArgs()
 
     # Convenience shortcuts for test arguments
@@ -1885,12 +1886,11 @@ if __name__ == '__main__':
     flag = GracefulExiter()
 
     cfg = {}
-    config_file = "config.yaml"
-    config = ReadConfig(config_file)
+    config = ReadConfig(CONFIG_FILE)
     if ValidateConfig(config):
         cfg = config
     else:
-        Log(LogLevel.ERROR, f"Error(s) found in {config_file}")
+        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}")
 
     if cfg["num_threads"] == 0:
         if sys.version_info >= (3, 13):
@@ -1904,8 +1904,8 @@ if __name__ == '__main__':
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
 
-    flac_version = ""
-    opus_version = ""
+    flac_version = "" # pylint: disable=invalid-name
+    opus_version = "" # pylint: disable=invalid-name
     CheckDependencies()
 
     ValidateDependencyConfigArgumentCombinations()
