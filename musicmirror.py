@@ -1386,11 +1386,13 @@ def RepadLibrary() -> None:
 
     Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
 
-    num_repadded = 0
-    num_padding_ok = 0
-    num_failed = 0
-    num_interrupted = 0
-    num_total = 0
+    summary = {
+        "num_repadded": 0,
+        "num_padding_ok": 0,
+        "num_failed": 0,
+        "num_interrupted": 0,
+        "num_total": 0
+    }
 
     failed_repads = []
 
@@ -1399,7 +1401,7 @@ def RepadLibrary() -> None:
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
-                num_total += 1
+                summary['num_total'] += 1
                 if args.force or \
                    args.force_repad or \
                    entry.fingerprint_on_last_scan != entry.fingerprint_on_last_repad:
@@ -1411,32 +1413,32 @@ def RepadLibrary() -> None:
                 break
         for future in future_to_entry:
             if future.cancelled():
-                num_interrupted += 1
+                summary['num_interrupted'] += 1
             else:
                 repad_attempted, command_successful = future.result()
                 if repad_attempted and command_successful:
-                    num_repadded += 1
+                    summary['num_repadded'] += 1
                 elif not repad_attempted and command_successful:
-                    num_padding_ok += 1
+                    summary['num_padding_ok'] += 1
                 else:
-                    num_failed += 1
+                    summary['num_failed'] += 1
                     failed_repads.append(future_to_entry[future].library_path)
 
     repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
-    if num_failed > 0:
+    if summary['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
-        repad_fail = f"\n{Colors.WARNING}{num_failed} not repadded due to errors{Colors.ENDC}"
+        repad_fail = f"\n{Colors.WARNING}{summary['num_failed']} not repadded due to errors{Colors.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
     if early_exit:
-        interrupted_summary = f"\n{num_interrupted} interrupted"
+        interrupted_summary = f"\n{summary['num_interrupted']} interrupted"
     else:
         interrupted_summary = ""
     Log(summary_log_level, f"{repad_result}\n" \
-                           f"{num_total} total FLACs\n" \
-                           f"{num_padding_ok} had acceptable padding\n" + \
-                           f"{num_repadded} repadded" + \
+                           f"{summary['num_total']} total FLACs\n" \
+                           f"{summary['num_padding_ok']} had acceptable padding\n" + \
+                           f"{summary['num_repadded']} repadded" + \
                            repad_fail + \
                            interrupted_summary)
 
