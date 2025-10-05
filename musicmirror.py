@@ -1428,8 +1428,6 @@ def RemoveOrphanedFilesFromPortable() -> None:
     num_files_removed = 0
     num_transcodes_removed = 0
 
-    # TODO worth it to remove orphaned file/flac entries from cache as they are deleted by rmtree here?
-
     dir_removal_list = []
     for index, entry in enumerate(cache.dirs):
         if not entry.present_in_last_scan:
@@ -1448,6 +1446,10 @@ def RemoveOrphanedFilesFromPortable() -> None:
             RemoveElementsFromSequence(cache.dirs, dir_removal_list)
             flag.SaveAndQuit()
     RemoveElementsFromSequence(cache.dirs, dir_removal_list)
+
+    # Some orphaned files have already been deleted at this point due to the above shutil.rmtree() call
+    # It's simpler and faster to not bookkeep the changes in the cache as they occur
+    # Instead naively continue and use missing_ok=True when deleting files
 
     file_removal_list = []
     for index, entry in enumerate(cache.files):
