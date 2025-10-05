@@ -292,7 +292,7 @@ def CheckDependencies() -> Tuple[str, str]:
         flac_version_str = flac_output.stdout.decode('utf-8')[:-1]
         flac_version_str = ConvertFlacVersionToVendorString(flac_version_str)
     except subprocess.CalledProcessError as exc:
-        flac_error = str(exc)
+        Log(LogLevel.WARN, f"flac codec unavailable - cannot encode, decode, or test FLACs: {str(exc)}")
 
     try:
         metaflac_output = subprocess.run(['metaflac', '--version'], capture_output=True)
@@ -300,7 +300,7 @@ def CheckDependencies() -> Tuple[str, str]:
             QuitWithoutSaving()
         metaflac_version = metaflac_output.stdout.decode('utf-8')[:-1]
     except subprocess.CalledProcessError as exc:
-        metaflac_error = str(exc)
+        Log(LogLevel.WARN, f"metaflac unavailable - cannot adjust padding in FLACs: {str(exc)}")
 
     try:
         opus_output = subprocess.run(['opusenc', '--version'], capture_output=True)
@@ -308,14 +308,7 @@ def CheckDependencies() -> Tuple[str, str]:
             QuitWithoutSaving()
         opus_version_str = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
-        opus_error = str(exc)
-
-    if not flac_version_str:
-        Log(LogLevel.WARN, "flac codec unavailable - cannot encode, decode, or test FLACs: " + flac_error)
-    if not metaflac_version:
-        Log(LogLevel.WARN, "metaflac unavailable - cannot adjust padding in FLACs: " + metaflac_error)
-    if not opus_version_str:
-        Log(LogLevel.WARN, "opus codec unavailable - cannot encode Opus files: " + opus_error)
+        Log(LogLevel.WARN, f"opus codec unavailable - cannot encode Opus files: {str(exc)}")
 
     Log(LogLevel.INFO, "Python version:   " + str(sys.version))
     if flac_version_str:
