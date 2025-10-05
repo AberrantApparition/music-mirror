@@ -203,9 +203,9 @@ def ValidateConfig(config) -> bool:
         Log(LogLevel.WARN, f"target_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
-    if config["num_threads"] > os.process_cpu_count():
+    if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.WARN,
-            f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({os.process_cpu_count()})",
+            f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({cpu_count})",
             always_log=True)
         ok = False
 
@@ -1908,6 +1908,8 @@ if __name__ == '__main__':
 
     args = ParseArgs()
 
+    cpu_count = os.process_cpu_count() if sys.version_info >= (3, 13) else os.cpu_count()
+
     # Convenience shortcuts for test arguments
     test = hasattr(args, 'test') and args.test
     test_force = hasattr(args, 'test_force') and args.test_force
@@ -1928,10 +1930,7 @@ if __name__ == '__main__':
         Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True)
 
     if cfg["num_threads"] == 0:
-        if sys.version_info >= (3, 13):
-            cfg["num_threads"] = os.process_cpu_count()
-        else:
-            cfg["num_threads"] = os.cpu_count()
+        cfg["num_threads"] = cpu_count
     Log(LogLevel.INFO, f"Using {cfg["num_threads"]} worker threads")
 
     if args.func is convert_playlists:
