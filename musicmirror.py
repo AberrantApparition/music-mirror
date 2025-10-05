@@ -1393,7 +1393,7 @@ def ReencodeLibrary() -> None:
                 executor.shutdown(wait=True, cancel_futures=True)
                 early_exit = True
                 break
-        for future in future_to_entry:
+        for future, entry in future_to_entry.items():
             if future.cancelled():
                 num_interrupted += 1
             else:
@@ -1401,7 +1401,7 @@ def ReencodeLibrary() -> None:
                     num_reencoded += 1
                 else:
                     num_failed += 1
-                    failed_reencodes.append(future_to_entry[future].library_path)
+                    failed_reencodes.append(entry.library_path)
 
     reencode_result = "Library reencode interrupted:" if early_exit else "Library reencode complete:"
     if num_failed > 0:
@@ -1461,7 +1461,7 @@ def RepadLibrary() -> None:
                 executor.shutdown(wait=True, cancel_futures=True)
                 early_exit = True
                 break
-        for future in future_to_entry:
+        for future, entry in future_to_entry.items():
             if future.cancelled():
                 summary['num_interrupted'] += 1
             else:
@@ -1472,7 +1472,7 @@ def RepadLibrary() -> None:
                     summary['num_padding_ok'] += 1
                 else:
                     summary['num_failed'] += 1
-                    failed_repads.append(future_to_entry[future].library_path)
+                    failed_repads.append(entry.library_path)
 
     repad_result = "Library repad interrupted:" if early_exit else "Library repad complete:"
     if summary['num_failed'] > 0:
@@ -1698,14 +1698,14 @@ def MirrorLibrary() -> None:
                 executor.shutdown(wait=True, cancel_futures=True)
                 early_exit = True
                 break
-        for future in future_to_entry:
+        for future, entry in future_to_entry.items():
             if future.cancelled():
                 summary["num_file_mirrors_interrupted"] += 1
             elif future.result():
                 summary["num_file_mirrors_succeeded"] += 1
             else:
                 summary["num_file_mirrors_failed"] += 1
-                summary["failed_mirrors"].append(future_to_entry[future].library_path)
+                summary["failed_mirrors"].append(entry.library_path)
 
     if early_exit:
         PrintMirrorAndTranscodeSummary(summary, early_exit)
@@ -1724,7 +1724,7 @@ def MirrorLibrary() -> None:
                 executor.shutdown(wait=True, cancel_futures=True)
                 early_exit = True
                 break
-        for future in future_to_entry:
+        for future, entry in future_to_entry.items():
             if future.cancelled():
                 summary["num_flac_transcodes_interrupted"] += 1
             else:
@@ -1732,7 +1732,7 @@ def MirrorLibrary() -> None:
                     summary["num_flac_transcodes_succeeded"] += 1
                 else:
                     summary["num_flac_transcodes_failed"] += 1
-                    summary["failed_transcodes"].append(future_to_entry[future].library_path)
+                    summary["failed_transcodes"].append(entry.library_path)
 
     PrintMirrorAndTranscodeSummary(summary, early_exit)
 
