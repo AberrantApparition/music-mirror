@@ -1291,8 +1291,7 @@ def ScanLibrary() -> None:
         for file in files:
             full_path = os.path.join(root, file)
             if not (cfg["ignore_hidden"] and IsHiddenFileOrPath(full_path)):
-                file_extension = file.split(".")[-1]
-                if file_extension == "flac":
+                if file.split(".")[-1] == "flac":
                     flac_paths.append(full_path)
                 else:
                     non_flac_paths.append(full_path)
@@ -1325,13 +1324,12 @@ def ScanLibrary() -> None:
                 break
         for future in future_to_path:
             if not future.cancelled():
-                full_path = future_to_path[future]
                 is_new, test_ran, test_pass = future.result()
                 if test_ran and test_pass:
                     summary["num_tests_passed"] += 1
                 elif test_ran and not test_pass:
                     summary["num_tests_failed"] += 1
-                    summary["failed_flac_tests"].append(full_path)
+                    summary["failed_flac_tests"].append(future_to_path[future])
                 summary["num_new_flacs"] += 1 if is_new else 0
                 summary["num_flacs"] += 1
 
