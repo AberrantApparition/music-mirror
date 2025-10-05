@@ -943,12 +943,11 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
                                        f"{Colors.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{Colors.ENDC}")
-                    return False, RepadAction.NONE
                 else:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
                                        f"{Colors.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
                                        f"{errs.removesuffix('\n')}{Colors.ENDC}")
-                    return False, RepadAction.NONE
+                return False, RepadAction.NONE
 
         except subprocess.TimeoutExpired:
             Log(LogLevel.WARN, f"metaflac padding check subprocess for {repad_check_log} timed out")
