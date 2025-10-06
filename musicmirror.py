@@ -871,13 +871,16 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
 
                 padding_block_length_lines = [line for line in outlines if line.startswith('  length:')]
                 num_padding_blocks = len(padding_block_length_lines)
-                total_padding_size_bytes = 0
+                num_padding_bytes = 0
                 for line in padding_block_length_lines:
-                    total_padding_size_bytes += int(line.split(': ')[-1])
+                    num_padding_bytes += int(line.split(': ')[-1])
 
-                if total_padding_size_bytes > cfg["max_padding_size"] or total_padding_size_bytes < cfg["min_padding_size"]:
+                padding_over_limit = num_padding_bytes > cfg["max_padding_size"]
+                padding_under_limit = num_padding_bytes < cfg["min_padding_size"]
+                if padding_over_limit or padding_under_limit:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
-                                        f"{LOG_PREFIX_INDENT}flac has {total_padding_size_bytes} bytes of padding")
+                                        f"{LOG_PREFIX_INDENT}flac has {num_padding_bytes} bytes of padding"
+                                        f"{(" (too much)" if padding_over_limit else " (not enough)")}")
                     return True, RepadAction.RESIZE
                 elif num_padding_blocks > 1:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
@@ -888,6 +891,8 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
                                         f"{LOG_PREFIX_INDENT}flac padding is not last block")
                     return True, RepadAction.MERGE_AND_SORT
                 else:
+                    Log(LogLevel.TRACE, f"{repad_check_log}\n" \
+                                        f"{LOG_PREFIX_INDENT}flac padding is acceptable ({num_padding_bytes} bytes)")
                     return True, RepadAction.NONE
             else:
                 if p.returncode < 0:
