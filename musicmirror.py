@@ -313,16 +313,12 @@ def ValidateDependencyConfigArgumentCombinations() -> None:
     if not flac_version and args.func is reencode_library:
         Log(LogLevel.ERROR, "Cannot reencode library without a FLAC codec available")
 
-    # TODO is this true?
-    if not flac_version and args.func is mirror_library:
-        Log(LogLevel.ERROR, "Cannot transcode portable library without a FLAC decoder available")
-
     if not opus_version and args.func is mirror_library:
         Log(LogLevel.ERROR, "Cannot transcode portable library without an Opus encoder available")
 
     # Hard links require both links to be on the same filesystem
     if hasattr(args, 'hard_link') and args.hard_link and \
-       os.stat(cfg["library_path"]).st_dev != os.stat(cfg["output_library_path"]).st_dev:
+        os.stat(cfg["library_path"]).st_dev != os.stat(cfg["output_library_path"]).st_dev:
         Log(LogLevel.ERROR, "To use hard links the main library and portable library must reside on the same filesystem")
 
 def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
