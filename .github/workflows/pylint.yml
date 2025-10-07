@@ -11,4 +11,5 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install pylint
+      - run: pip install pyyaml
       - run: pylint $(git ls-files '*.py')
