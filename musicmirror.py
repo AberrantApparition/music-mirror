@@ -771,7 +771,7 @@ def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
     return test_ran, entry.test_pass, status
 
 def CalculateFileHash(file_path) -> str:
-    with open(file_path, "rb", encoding="utf-8") as f:
+    with open(file_path, "rb") as f:
         return file_digest(f, 'sha224').hexdigest()
 
 def CalculateFingerprint(file_path) -> str:
@@ -780,8 +780,8 @@ def CalculateFingerprint(file_path) -> str:
     else:
         return str(datetime.fromtimestamp(Path(file_path).stat().st_mtime, timezone.utc))
 
-# Returns whether successful
 def ReencodeFlac(entry) -> bool:
+    """Return whether successful"""
     reencode_log = f"Reencode {entry.formatted_path}"
 
     if args.dry_run:
