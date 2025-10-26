@@ -1873,7 +1873,7 @@ if __name__ == '__main__':
     if ValidateConfig(tmp_config):
         cfg = tmp_config
     else:
-        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True)
+        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True, color_log=False)
 
     if cfg["num_threads"] == 0:
         cfg["num_threads"] = cpu_count
