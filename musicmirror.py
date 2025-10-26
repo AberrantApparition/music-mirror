@@ -77,6 +77,7 @@ def SetThreadName() -> None:
 
 def Log(level, log, always_log=False, color_log=True) -> None:
     exit_early = False
+    file=None
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
 
@@ -89,6 +90,7 @@ def Log(level, log, always_log=False, color_log=True) -> None:
             case LogLevel.ERROR:
                 full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] {log}"
                 exit_early = True
+                file = sys.stderr
             case LogLevel.WARN:
                 full_log = f"[{timestamp}][{thread_info.name}][{color.WARNING}{color.BOLD}WARN{color.ENDC} ] {log}"
             case LogLevel.INFO:
@@ -101,7 +103,7 @@ def Log(level, log, always_log=False, color_log=True) -> None:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
         with print_lock: # pylint: disable=possibly-used-before-assignment
-            print(full_log)
+            print(full_log, file=file)
 
         if exit_early:
             QuitWithoutSaving(1)
