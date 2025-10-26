@@ -42,7 +42,7 @@ LOG_PREFIX_INDENT = "                               "
 
 thread_info = local()
 
-Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD UNDERLINE')(
+Format = namedtuple('Format', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD')(
     '\033[95m',
     '\033[94m',
     '\033[96m',
@@ -50,9 +50,10 @@ Colors = namedtuple('Colors', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
     '\033[93m',
     '\033[91m',
     '\033[0m',
-    '\033[1m',
-    '\033[4m',
+    '\033[1m'
 )
+
+NoFormat = namedtuple('NoFormat', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD')('','','','','','','','')
 
 @total_ordering
 class LogLevel(Enum): # pylint: disable=missing-class-docstring
@@ -74,7 +75,7 @@ def SetThreadName() -> None:
         thread_num = thread_name.split('_')[-1].zfill(2)
         thread_info.name = f"WT{thread_num}"
 
-def Log(level, log, always_log=False) -> None:
+def Log(level, log, always_log=False, color_log=True) -> None:
     exit_early = False
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
@@ -82,18 +83,20 @@ def Log(level, log, always_log=False) -> None:
         if not hasattr(thread_info, 'name'):
             SetThreadName()
 
+        color = Format if (color_log and cfg["color_logs"]) else NoFormat
+
         match level:
             case LogLevel.ERROR:
-                full_log = f"[{timestamp}][{thread_info.name}][{Colors.FAIL}{Colors.BOLD}ERROR{Colors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] {log}"
                 exit_early = True
             case LogLevel.WARN:
-                full_log = f"[{timestamp}][{thread_info.name}][{Colors.WARNING}{Colors.BOLD}WARN{Colors.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{color.WARNING}{color.BOLD}WARN{color.ENDC} ] {log}"
             case LogLevel.INFO:
-                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKGREEN}INFO{Colors.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{color.OKGREEN}INFO{color.ENDC} ] {log}"
             case LogLevel.DEBUG:
-                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKBLUE}DEBUG{Colors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{color.OKBLUE}DEBUG{color.ENDC}] {log}"
             case LogLevel.TRACE:
-                full_log = f"[{timestamp}][{thread_info.name}][{Colors.OKCYAN}TRACE{Colors.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{color.OKCYAN}TRACE{color.ENDC}] {log}"
             case _:
                 QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
 
@@ -104,7 +107,7 @@ def Log(level, log, always_log=False) -> None:
             QuitWithoutSaving(1)
 
 def ReadConfig(config_path) -> dict:
-    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True)
+    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True, color_log=False)
 
     with open(config_path, encoding="utf-8") as stream:
         try:
@@ -112,7 +115,7 @@ def ReadConfig(config_path) -> dict:
         except yaml.YAMLError as exc:
             Log(LogLevel.ERROR, str(exc))
 
-    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True)
+    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True, color_log=False)
 
     return cfg_dict
 
@@ -121,13 +124,15 @@ def ValidateConfigDictKey(config, key_name, expected_type) -> bool:
         if isinstance(config[key_name], expected_type):
             return True
         else:
-            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True)
+            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True, color_log=False)
             return False
     else:
-        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True)
+        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True, color_log=False)
         return False
 
 def ValidateConfig(config) -> bool:
+    global fmt
+
     ok = True
 
     ok = ok and ValidateConfigDictKey(config, "log_level", str)
@@ -142,6 +147,7 @@ def ValidateConfig(config) -> bool:
     ok = ok and ValidateConfigDictKey(config, "num_threads", int)
     ok = ok and ValidateConfigDictKey(config, "file_mirror_method", str)
     ok = ok and ValidateConfigDictKey(config, "log_full_paths", bool)
+    ok = ok and ValidateConfigDictKey(config, "color_logs", bool)
     ok = ok and ValidateConfigDictKey(config, "ignore_hidden", bool)
     ok = ok and ValidateConfigDictKey(config, "check_padding", bool)
     ok = ok and ValidateConfigDictKey(config, "min_padding_size", int)
@@ -150,6 +156,8 @@ def ValidateConfig(config) -> bool:
 
     if not ok:
         return False
+
+    fmt = Format if config["color_logs"] else NoFormat
 
     ok = ValidateConfigPaths(config)
 
@@ -165,44 +173,44 @@ def ValidateConfig(config) -> bool:
         case "trace":
             config["log_level"] = LogLevel.TRACE
         case _:
-            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
+            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True, color_log=False)
             ok = False
     if ok:
-        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
+        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True, color_log=False)
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True)
+        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True, color_log=False)
         ok = False
 
     if config["min_padding_size"] < 0:
-        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True, color_log=False)
         ok = False
 
     if config["max_padding_size"] < 0:
-        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True, color_log=False)
         ok = False
 
     if config["target_padding_size"] < 0:
-        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True, color_log=False)
         ok = False
 
     if config["min_padding_size"] > config["target_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True, color_log=False)
         ok = False
 
     if config["min_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True, color_log=False)
         ok = False
 
     if config["target_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True, color_log=False)
         ok = False
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.WARN,
             f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({cpu_count})",
-            always_log=True)
+            always_log=True, color_log=False)
         ok = False
 
     if config["file_mirror_method"] != "copy" and \
@@ -210,7 +218,7 @@ def ValidateConfig(config) -> bool:
        config["file_mirror_method"] != "hard_link":
         Log(LogLevel.WARN,
             f"Invalid file mirror method {config["file_mirror_method"]}. Supported options are copy, soft_link, hard_link",
-            always_log=True)
+            always_log=True, color_log=False)
         ok = False
 
     return ok
@@ -331,10 +339,10 @@ def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
     config["portable_playlist_path"] = AppendPathSeparator(os.path.expanduser(config["portable_playlist_path"]))
 
     config["formatted_library_status_path"] = FormatPath(config["library_status_path"])
-    config["formatted_library_path"] = FormatPath(config["library_path"], Colors.OKGREEN)
-    config["formatted_output_library_path"] = FormatPath(config["output_library_path"], Colors.OKBLUE)
-    config["formatted_library_playlist_path"] = FormatPath(config["library_playlist_path"], Colors.OKGREEN)
-    config["formatted_portable_playlist_path"] = FormatPath(config["portable_playlist_path"], Colors.OKBLUE)
+    config["formatted_library_path"] = FormatPath(config["library_path"], fmt.OKGREEN)
+    config["formatted_output_library_path"] = FormatPath(config["output_library_path"], fmt.OKBLUE)
+    config["formatted_library_playlist_path"] = FormatPath(config["library_playlist_path"], fmt.OKGREEN)
+    config["formatted_portable_playlist_path"] = FormatPath(config["portable_playlist_path"], fmt.OKBLUE)
 
     library_status_path_obj = Path(config["library_status_path"])
     library_path_obj = Path(config["library_path"])
@@ -448,16 +456,16 @@ class DirEntry(): # pylint: disable=too-many-instance-attributes
             Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad dir init arguments")
 
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
+            self.formatted_path = FormatPath(self.library_path, fmt.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, fmt.OKGREEN)
 
         if args.func is mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, fmt.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(self.path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.path, fmt.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -503,16 +511,16 @@ class FileEntry(): # pylint: disable=too-many-instance-attributes
             Log(LogLevel.ERROR, "SHOULD NOT HAPPEN: bad file init arguments")
 
         if cfg["log_full_paths"]:
-            self.formatted_path = FormatPath(self.library_path, Colors.OKGREEN)
+            self.formatted_path = FormatPath(self.library_path, fmt.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, fmt.OKGREEN)
 
         if args.func is mirror_library:
             self.portable_path = os.path.join(cfg["output_library_path"], self.path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, fmt.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(self.path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.path, fmt.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -586,17 +594,17 @@ class FlacEntry(): # pylint: disable=too-many-instance-attributes
         self.quoted_path = quote(self.library_path)
 
         if cfg["log_full_paths"]:
-            self.formatted_path = AddColor(self.quoted_path, Colors.OKGREEN)
+            self.formatted_path = AddColor(self.quoted_path, fmt.OKGREEN)
         else:
-            self.formatted_path = FormatPath(self.path, Colors.OKGREEN)
+            self.formatted_path = FormatPath(self.path, fmt.OKGREEN)
 
         if args.func is mirror_library:
             relative_portable_path = self.path[:-5] + ".opus"
             self.portable_path = os.path.join(cfg["output_library_path"], relative_portable_path)
             if cfg["log_full_paths"]:
-                self.formatted_portable_path = FormatPath(self.portable_path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(self.portable_path, fmt.OKBLUE)
             else:
-                self.formatted_portable_path = FormatPath(relative_portable_path, Colors.OKBLUE)
+                self.formatted_portable_path = FormatPath(relative_portable_path, fmt.OKBLUE)
 
     def asdict(self) -> Dict:
         return \
@@ -660,7 +668,7 @@ def TimeCommand(start_time, command_desc, time_log_level) -> None:
 def PrintFailureList(description, fail_list) -> None:
     for item in fail_list:
         description = f"{description}\n{item}"
-    Log(LogLevel.WARN, f"{Colors.WARNING}{description}{Colors.ENDC}")
+    Log(LogLevel.WARN, f"{fmt.WARNING}{description}{fmt.ENDC}")
 
 def ReadCache() -> None:
     global cache
@@ -704,11 +712,11 @@ def WriteCache() -> None:
     TimeCommand(start_time, "Writing library status", LogLevel.INFO)
 
 def FormatPath(path, color='') -> str:
-    color_reset = Colors.ENDC if color else ''
+    color_reset = fmt.ENDC if color else ''
     return f'{color}{quote(path)}{color_reset}'
 
 def AddColor(text, color='') -> str:
-    color_reset = Colors.ENDC if color else ''
+    color_reset = fmt.ENDC if color else ''
     return f'{color}{text}{color_reset}'
 
 def DetectPlaylist(file_path) -> bool:
@@ -746,10 +754,10 @@ def TestFlac(file_path) -> Tuple[bool, str]:
                 return True, ""
             else:
                 if p.returncode < 0:
-                    status = f"{Colors.WARNING}FLAC test terminated by signal {-1 * p.returncode}{Colors.ENDC}"
+                    status = f"{fmt.WARNING}FLAC test terminated by signal {-1 * p.returncode}{fmt.ENDC}"
                 else:
                     test_error = errs.removesuffix('\n').split(".flac: ")[-1][:-1]
-                    status = f"{Colors.WARNING}FLAC test failed:\n{test_error}{Colors.ENDC}"
+                    status = f"{fmt.WARNING}FLAC test failed:\n{test_error}{fmt.ENDC}"
                 return False, status
         except subprocess.TimeoutExpired:
             status = "FLAC test subprocess timed out"
@@ -824,8 +832,8 @@ def ReencodeFlac(entry) -> bool:
                     reencode_log += f"\n{LOG_PREFIX_INDENT}    New fingerprint: {fingerprint}"
                 if errs:
                     reencode_log_level = LogLevel.WARN
-                    reencode_log += f"\n{Colors.WARNING}FLAC reencode passed with warnings:" \
-                                    f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
+                    reencode_log += f"\n{fmt.WARNING}FLAC reencode passed with warnings:" \
+                                    f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
                 else:
                     reencode_log_level = LogLevel.DEBUG
                 Log(reencode_log_level, reencode_log)
@@ -835,12 +843,12 @@ def ReencodeFlac(entry) -> bool:
                 Path.unlink(tmp_path, missing_ok=True)
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
-                                       f"{Colors.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{Colors.ENDC}")
+                                       f"{fmt.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{fmt.ENDC}")
                     return False
                 else:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
-                                       f"{Colors.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
+                                       f"{fmt.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -897,11 +905,11 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
-                                       f"{Colors.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{Colors.ENDC}")
+                                       f"{fmt.WARNING}metaflac padding check terminated by signal {-1 * p.returncode}{fmt.ENDC}")
                 else:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
-                                       f"{Colors.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
+                                       f"{fmt.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
                 return False, RepadAction.NONE
 
         except subprocess.TimeoutExpired:
@@ -959,8 +967,8 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                     repad_log += f"\n{LOG_PREFIX_INDENT}    New fingerprint: {fingerprint}"
                 if errs:
                     repad_log_level = LogLevel.WARN
-                    repad_log += f"\n{Colors.WARNING}FLAC repad passed with warnings:" \
-                                 f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
+                    repad_log += f"\n{fmt.WARNING}FLAC repad passed with warnings:" \
+                                 f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
                 else:
                     repad_log_level = LogLevel.DEBUG
                 Log(repad_log_level, repad_log)
@@ -969,12 +977,12 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{repad_log}\n" \
-                                       f"{Colors.WARNING}FLAC repad terminated by signal {-1 * p.returncode}{Colors.ENDC}")
+                                       f"{fmt.WARNING}FLAC repad terminated by signal {-1 * p.returncode}{fmt.ENDC}")
                     return True, False
                 else:
                     Log(LogLevel.WARN, f"{repad_log}\n" \
-                                       f"{Colors.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
+                                       f"{fmt.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
                     return True, False
 
         except subprocess.TimeoutExpired:
@@ -1011,8 +1019,8 @@ def TranscodeFlac(entry) -> bool:
 
                 if errs:
                     transcode_log_level = LogLevel.WARN
-                    transcode_log += f"\n{Colors.WARNING}Transcode passed with warnings:" \
-                                     f"\n{errs.removesuffix('\n')}{Colors.ENDC}"
+                    transcode_log += f"\n{fmt.WARNING}Transcode passed with warnings:" \
+                                     f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
                 else:
                     transcode_log_level = LogLevel.DEBUG
                 Log(transcode_log_level, transcode_log)
@@ -1021,12 +1029,12 @@ def TranscodeFlac(entry) -> bool:
             else:
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
-                                       f"{Colors.WARNING}Transcode terminated by signal {-1 * p.returncode}{Colors.ENDC}")
+                                       f"{fmt.WARNING}Transcode terminated by signal {-1 * p.returncode}{fmt.ENDC}")
                     return False
                 else:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
-                                       f"{Colors.WARNING}Transcode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{Colors.ENDC}")
+                                       f"{fmt.WARNING}Transcode failed with return code {p.returncode}:\n" \
+                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -1135,8 +1143,8 @@ def PrintScanSummary(stats, early_exit=False) -> None:
         summary_log_level = LogLevel.WARN if stats["num_tests_failed"] > 0 else LogLevel.INFO
         num_tests = stats["num_tests_passed"] + stats["num_tests_failed"]
         pass_fail = f": {stats["num_tests_passed"]} passes, {stats["num_tests_failed"]} failures" if num_tests else ""
-        test_color = Colors.WARNING if stats["num_tests_failed"] else Colors.ENDC
-        test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{Colors.ENDC}"
+        test_color = fmt.WARNING if stats["num_tests_failed"] else fmt.ENDC
+        test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{fmt.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         test_summary = ""
@@ -1287,7 +1295,7 @@ def PrintReencodeSummary(stats, early_exit) -> None:
     reencode_result = "Library reencode interrupted:" if early_exit else "Library reencode complete:"
     if stats['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
-        reencode_fail = f"\n{Colors.WARNING}{stats['num_failed']} not reencoded due to errors{Colors.ENDC}"
+        reencode_fail = f"\n{fmt.WARNING}{stats['num_failed']} not reencoded due to errors{fmt.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         reencode_fail = ""
@@ -1368,7 +1376,7 @@ def PrintRepadSummary(stats, early_exit) -> None:
 
     if stats['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
-        repad_fail = f"\n{Colors.WARNING}{stats['num_failed']} not repadded due to errors{Colors.ENDC}"
+        repad_fail = f"\n{fmt.WARNING}{stats['num_failed']} not repadded due to errors{fmt.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
@@ -1523,14 +1531,14 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
 
     if stats["num_file_mirrors_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        mirror_fail = f"\n{Colors.WARNING}Files failed to mirror:                   {stats["num_file_mirrors_failed"]}{Colors.ENDC}"
+        mirror_fail = f"\n{fmt.WARNING}Files failed to mirror:                   {stats["num_file_mirrors_failed"]}{fmt.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         mirror_fail = ""
 
     if stats["num_flac_transcodes_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        transcode_fail = f"\n{Colors.WARNING}Flacs failed to transcode:                {stats["num_flac_transcodes_failed"]}{Colors.ENDC}"
+        transcode_fail = f"\n{fmt.WARNING}Flacs failed to transcode:                {stats["num_flac_transcodes_failed"]}{fmt.ENDC}"
     else:
         summary_log_level = LogLevel.INFO
         transcode_fail = ""
@@ -1809,10 +1817,10 @@ def convert_playlists() -> None:
         for file in files:
             file_path = os.path.join(root, file)
             relative_path = file_path[len(cfg["library_playlist_path"]):]
-            formatted_path = FormatPath(relative_path, Colors.OKGREEN)
+            formatted_path = FormatPath(relative_path, fmt.OKGREEN)
             if DetectPlaylist(file_path):
                 output_path = os.path.join(cfg["portable_playlist_path"], relative_path)
-                playlist_convert_str = f"{formatted_path} -> {FormatPath(relative_path, Colors.OKBLUE)}"
+                playlist_convert_str = f"{formatted_path} -> {FormatPath(relative_path, fmt.OKBLUE)}"
                 if args.dry_run:
                     Log(LogLevel.DEBUG, f"Dry run: {playlist_convert_str}")
                 else:
@@ -1845,6 +1853,7 @@ if __name__ == '__main__':
     print_lock = Lock()
     cpu_count = os.process_cpu_count() if sys.version_info >= (3, 13) else os.cpu_count()
     flag = GracefulExiter()
+    fmt = {}
     cache = []
 
     # ffmpeg changes stdin attributes when it is terminated

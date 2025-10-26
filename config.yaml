@@ -25,6 +25,8 @@ num_threads: 0
 file_mirror_method: "copy"
 # Whether to print the full paths to library files in logs (e.g. song.flac vs library/song.flac)
 log_full_paths: True
+# Whether to add terminal colors to logs
+color_logs: True
 # Whether to ignore hidden files. The implementation here considers a non-hidden file inside a hidden directory to be hidden
 ignore_hidden: True
 # Whether to check for and fix flac padding. If enabled, the script will move all padding blocks to the end of the metadata and merge them. It will resize padding if it is too large or small
