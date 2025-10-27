@@ -56,6 +56,16 @@ Format = namedtuple('Format', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 NoFormat = namedtuple('NoFormat', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD')('','','','','','','','')
 
 @total_ordering
+class ExitCode(Enum): # pylint: disable=missing-class-docstring
+    OK    = 0
+    WARN  = 1
+    ERROR = 2
+    def __lt__(self, other) -> Union[bool, NotImplemented]:
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
+
+@total_ordering
 class LogLevel(Enum): # pylint: disable=missing-class-docstring
     ERROR = 0
     WARN  = 1
@@ -77,7 +87,6 @@ def SetThreadName() -> None:
 
 def Log(level, log, always_log=False, color_log=True) -> None:
     exit_early = False
-    file = None
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
 
@@ -90,7 +99,6 @@ def Log(level, log, always_log=False, color_log=True) -> None:
             case LogLevel.ERROR:
                 full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] {log}"
                 exit_early = True
-                file = sys.stderr
             case LogLevel.WARN:
                 full_log = f"[{timestamp}][{thread_info.name}][{color.WARNING}{color.BOLD}WARN{color.ENDC} ] {log}"
             case LogLevel.INFO:
@@ -100,13 +108,15 @@ def Log(level, log, always_log=False, color_log=True) -> None:
             case LogLevel.TRACE:
                 full_log = f"[{timestamp}][{thread_info.name}][{color.OKCYAN}TRACE{color.ENDC}] {log}"
             case _:
-                QuitWithoutSaving(f"Invalid log level '{level}' for log '{log}'")
+                full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] " \
+                           f"Invalid log level '{level}' for log '{log}'"
+                exit_early = True
 
         with print_lock: # pylint: disable=possibly-used-before-assignment
-            print(full_log, file=file)
+            print(full_log, file=(sys.stderr if exit_early else None))
 
         if exit_early:
-            QuitWithoutSaving(1)
+            flag.QuitWithoutSaving(ExitCode.ERROR.value) # pylint: disable=possibly-used-before-assignment
 
 def ReadConfig(config_path) -> dict:
     Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True, color_log=False)
@@ -228,26 +238,19 @@ def ValidateConfig(config) -> bool:
 def RestoreStdinAttr() -> None:
     termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr) # pylint: disable=possibly-used-before-assignment
 
-def SaveAndQuit(exit_arg=None) -> None:
-    WriteCache()
-    RestoreStdinAttr()
-    sys.exit(exit_arg)
-
-def QuitWithoutSaving(exit_arg=None) -> None:
-    RestoreStdinAttr()
-    sys.exit(exit_arg)
-
 class GracefulExiter():
+    state: bool
+    exit_code: ExitCode
 
     def __init__(self) -> None:
         self.state = False
+        self.exit_code = ExitCode.OK
         signal.signal(signal.SIGINT, self.ChangeState)
         signal.signal(signal.SIGHUP, self.ChangeState)
         signal.signal(signal.SIGTERM, self.ChangeState)
 
     def ChangeState(self, signum, _frame) -> None:
-        signal_name = signal.Signals(signum).name
-        signal_log = f"\nReceived signal {signal_name}; finishing processing"
+        signal_log = f"\nReceived signal {signal.Signals(signum).name}; finishing processing"
         if signal.Signals(signum) == signal.SIGINT:
             signal_log += " (repeat to exit now)"
         with print_lock:
@@ -255,16 +258,27 @@ class GracefulExiter():
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         self.state = True
 
+    def SetExitCode(self, new_exit_code) -> None:
+        self.exit_code = max(self.exit_code, new_exit_code)
+
     def Exit(self) -> bool:
         return self.state
 
     def SaveAndQuitIfSignalled(self, exit_arg=None) -> None:
         if self.Exit():
-            SaveAndQuit(exit_arg)
+            self.SaveAndQuit(exit_arg)
 
     def QuitWithoutSavingIfSignalled(self, exit_arg=None) -> None:
         if self.Exit():
-            QuitWithoutSaving(exit_arg)
+            self.QuitWithoutSaving(exit_arg)
+
+    def SaveAndQuit(self, exit_arg=None) -> None:
+        WriteCache()
+        self.QuitWithoutSaving(exit_arg)
+
+    def QuitWithoutSaving(self, exit_arg=None) -> None:
+        RestoreStdinAttr()
+        sys.exit(exit_arg if exit_arg else self.exit_code.value)
 
 # Leave the date off the end of the vendor string; cannot get the date without manually making a big version->date map
 def ConvertFlacVersionToVendorString(version) -> str:
@@ -283,7 +297,7 @@ def CheckDependencies() -> Tuple[str, str]:
         flac_version_str = ConvertFlacVersionToVendorString(flac_version_str)
     except subprocess.CalledProcessError as exc:
         if exc.returncode < 0:
-            QuitWithoutSaving()
+            flag.QuitWithoutSaving()
         Log(LogLevel.WARN, f"flac codec unavailable - cannot encode, decode, or test FLACs: {str(exc)}")
 
     try:
@@ -291,7 +305,7 @@ def CheckDependencies() -> Tuple[str, str]:
         metaflac_version = metaflac_output.stdout.decode('utf-8')[:-1]
     except subprocess.CalledProcessError as exc:
         if exc.returncode < 0:
-            QuitWithoutSaving()
+            flag.QuitWithoutSaving()
         Log(LogLevel.WARN, f"metaflac unavailable - cannot adjust padding in FLACs: {str(exc)}")
 
     try:
@@ -299,7 +313,7 @@ def CheckDependencies() -> Tuple[str, str]:
         opus_version_str = opus_output.stdout.decode('utf-8').split("\n")[0]
     except subprocess.CalledProcessError as exc:
         if exc.returncode < 0:
-            QuitWithoutSaving()
+            flag.QuitWithoutSaving()
         Log(LogLevel.WARN, f"opus codec unavailable - cannot encode Opus files: {str(exc)}")
 
     Log(LogLevel.INFO, f"Python version:   {str(sys.version)}")
@@ -1161,9 +1175,10 @@ def PrintScanSummary(stats, early_exit=False) -> None:
 
     if stats["failed_flac_tests"]:
         PrintFailureList('Failed flac tests:', stats["failed_flac_tests"])
+        flag.SetExitCode(ExitCode.WARN)
 
     if early_exit:
-        SaveAndQuit()
+        flag.SaveAndQuit()
 
 def IsHiddenFile(path) -> bool:
     if is_windows: # pylint: disable=possibly-used-before-assignment
@@ -1220,28 +1235,24 @@ def ScanLibrary() -> None:
                 PrintScanSummary(stats, early_exit=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
-        early_exit = False
         future_to_path = {executor.submit(CreateOrUpdateCacheFileEntry, full_path): full_path for full_path in non_flac_paths}
         for future in concurrent.futures.as_completed(future_to_path):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         for future in future_to_path:
             if not future.cancelled():
                 stats["num_new_files"] += future.result()
                 stats["num_files"] += 1
 
-    if early_exit:
-        PrintScanSummary(stats, early_exit)
+    if flag.Exit():
+        PrintScanSummary(stats, early_exit=True)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
-        early_exit = False
         future_to_path = {executor.submit(CreateOrUpdateCacheFlacEntry, full_path): full_path for full_path in flac_paths}
         for future in concurrent.futures.as_completed(future_to_path):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         for future in future_to_path:
             if not future.cancelled():
@@ -1254,7 +1265,7 @@ def ScanLibrary() -> None:
                 stats["num_new_flacs"] += 1 if is_new else 0
                 stats["num_flacs"] += 1
 
-    PrintScanSummary(stats, early_exit)
+    PrintScanSummary(stats, flag.Exit())
 
     TimeCommand(start_time, scan_test_log, LogLevel.INFO)
 
@@ -1298,6 +1309,7 @@ def PrintReencodeSummary(stats, early_exit) -> None:
     if stats['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
         reencode_fail = f"\n{fmt.WARNING}{stats['num_failed']} not reencoded due to errors{fmt.ENDC}"
+        flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
         reencode_fail = ""
@@ -1314,7 +1326,8 @@ def PrintReencodeSummary(stats, early_exit) -> None:
     if stats['failed_reencodes']:
         PrintFailureList('Failed reencodes:', stats['failed_reencodes'])
 
-    flag.SaveAndQuitIfSignalled()
+    if early_exit:
+        flag.SaveAndQuit()
 
 def ReencodeLibrary() -> None:
     start_time = time()
@@ -1330,7 +1343,6 @@ def ReencodeLibrary() -> None:
     }
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
-        early_exit = False
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
@@ -1347,7 +1359,6 @@ def ReencodeLibrary() -> None:
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
@@ -1359,7 +1370,7 @@ def ReencodeLibrary() -> None:
                     stats['num_failed'] += 1
                     stats['failed_reencodes'].append(entry.library_path)
 
-    PrintReencodeSummary(stats, early_exit)
+    PrintReencodeSummary(stats, flag.Exit())
 
     TimeCommand(start_time, "Reencoding library", LogLevel.INFO)
 
@@ -1379,6 +1390,7 @@ def PrintRepadSummary(stats, early_exit) -> None:
     if stats['num_failed'] > 0:
         summary_log_level = LogLevel.WARN
         repad_fail = f"\n{fmt.WARNING}{stats['num_failed']} not repadded due to errors{fmt.ENDC}"
+        flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
         repad_fail = ""
@@ -1399,7 +1411,8 @@ def PrintRepadSummary(stats, early_exit) -> None:
     if stats['failed_repads']:
         PrintFailureList('Failed repads:', stats['failed_repads'])
 
-    flag.SaveAndQuitIfSignalled()
+    if early_exit:
+        flag.SaveAndQuit()
 
 def RepadLibrary() -> None:
     start_time = time()
@@ -1417,7 +1430,6 @@ def RepadLibrary() -> None:
     }
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
-        early_exit = False
         future_to_entry = {}
         for entry in cache.flacs:
             if entry.present_in_last_scan:
@@ -1429,7 +1441,6 @@ def RepadLibrary() -> None:
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         stats['num_not_checked'] = stats['num_total'] - len(future_to_entry)
         for future, entry in future_to_entry.items():
@@ -1445,7 +1456,7 @@ def RepadLibrary() -> None:
                     stats['num_failed'] += 1
                     stats['failed_repads'].append(entry.library_path)
 
-    PrintRepadSummary(stats, early_exit)
+    PrintRepadSummary(stats, flag.Exit())
 
     TimeCommand(start_time, "Repadding library", LogLevel.INFO)
 
@@ -1534,6 +1545,7 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
     if stats["num_file_mirrors_failed"] > 0:
         summary_log_level = LogLevel.WARN
         mirror_fail = f"\n{fmt.WARNING}Files failed to mirror:                   {stats["num_file_mirrors_failed"]}{fmt.ENDC}"
+        flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
         mirror_fail = ""
@@ -1541,6 +1553,7 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
     if stats["num_flac_transcodes_failed"] > 0:
         summary_log_level = LogLevel.WARN
         transcode_fail = f"\n{fmt.WARNING}Flacs failed to transcode:                {stats["num_flac_transcodes_failed"]}{fmt.ENDC}"
+        flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
         transcode_fail = ""
@@ -1558,7 +1571,7 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
         PrintFailureList('Failed transcodes:', stats["failed_transcodes"])
 
     if early_exit:
-        SaveAndQuit()
+        flag.SaveAndQuit()
 
 def MirrorFile(entry) -> bool:
     file_mirror_str = f"{entry.formatted_path} -> {entry.formatted_portable_path}"
@@ -1606,8 +1619,6 @@ def MirrorLibrary() -> None:
         "failed_transcodes": []
     }
 
-    early_exit = False
-
     # Mirror directories
     for entry in cache.dirs:
         if not entry.mirrored or args.force:
@@ -1619,12 +1630,10 @@ def MirrorLibrary() -> None:
                 os.makedirs(entry.portable_path, exist_ok=True)
                 entry.mirrored = True
             stats["num_dirs_mirrored"] += 1
-        if flag.Exit():
-            # Do not exit on signals in the loop because loop should always be fast; no huge problem to finish
-            early_exit = True
+        # Do not exit on signals in the loop because loop should always be fast; no huge problem to finish
 
-    if early_exit:
-        PrintMirrorAndTranscodeSummary(stats, early_exit)
+    if flag.Exit():
+        PrintMirrorAndTranscodeSummary(stats, early_exit=True)
 
     # Mirror non-flac files
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
@@ -1635,7 +1644,6 @@ def MirrorLibrary() -> None:
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
@@ -1646,8 +1654,8 @@ def MirrorLibrary() -> None:
                 stats["num_file_mirrors_failed"] += 1
                 stats["failed_mirrors"].append(entry.library_path)
 
-    if early_exit:
-        PrintMirrorAndTranscodeSummary(stats, early_exit)
+    if flag.Exit():
+        PrintMirrorAndTranscodeSummary(stats, early_exit=True)
 
     # Mirror flacs
     with concurrent.futures.ThreadPoolExecutor(max_workers=cfg["num_threads"]) as executor:
@@ -1661,7 +1669,6 @@ def MirrorLibrary() -> None:
         for future in concurrent.futures.as_completed(future_to_entry):
             if flag.Exit():
                 executor.shutdown(wait=True, cancel_futures=True)
-                early_exit = True
                 break
         for future, entry in future_to_entry.items():
             if future.cancelled():
@@ -1673,7 +1680,7 @@ def MirrorLibrary() -> None:
                     stats["num_flac_transcodes_failed"] += 1
                     stats["failed_transcodes"].append(entry.library_path)
 
-    PrintMirrorAndTranscodeSummary(stats, early_exit)
+    PrintMirrorAndTranscodeSummary(stats, flag.Exit())
 
     TimeCommand(start_time, "Mirroring/transcoding files", LogLevel.INFO)
 
@@ -1892,3 +1899,5 @@ if __name__ == '__main__':
     args.func()
 
     TimeCommand(script_start, "MusicMirror", LogLevel.INFO)
+
+    flag.QuitWithoutSaving()
