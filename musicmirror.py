@@ -77,7 +77,7 @@ def SetThreadName() -> None:
 
 def Log(level, log, always_log=False, color_log=True) -> None:
     exit_early = False
-    file=None
+    file = None
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
 
