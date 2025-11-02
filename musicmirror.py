@@ -1818,9 +1818,13 @@ def convert_playlists() -> None:
 
     # Simpler to recreate all playlists each run; surely no one has enough playlists that this takes time
     if os.path.isdir(cfg["portable_playlist_path"]):
-        shutil.rmtree(cfg["portable_playlist_path"])
-
-    os.makedirs(cfg["portable_playlist_path"])
+        for root, _dirs, files in os.walk(cfg["portable_playlist_path"]):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if DetectPlaylist(file_path):
+                    Path.unlink(file_path, missing_ok=True)
+    else:
+        os.makedirs(cfg["portable_playlist_path"])
 
     for root, _dirs, files in os.walk(cfg["library_playlist_path"]):
         for file in files:
