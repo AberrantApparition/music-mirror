@@ -38,6 +38,7 @@ import yaml
 
 CONFIG_FILE = "config.yaml"
 LOG_PREFIX_INDENT = "                               "
+NEWLINE = "\n"
 
 thread_info = local()
 
@@ -182,10 +183,10 @@ def ValidateConfig(config) -> bool:
         case "trace":
             config["log_level"] = LogLevel.TRACE
         case _:
-            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
+            Log(LogLevel.WARN, f"Invalid log level {config['log_level']}", always_log=True)
             ok = False
     if ok:
-        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
+        Log(LogLevel.INFO, f"Log level set to {config['log_level']}", always_log=True)
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
@@ -218,7 +219,7 @@ def ValidateConfig(config) -> bool:
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.WARN,
-            f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({cpu_count})",
+            f"Number of worker threads ({config['num_threads']}) cannot exceed number of cores available to process ({cpu_count})",
             always_log=True)
         ok = False
 
@@ -226,7 +227,7 @@ def ValidateConfig(config) -> bool:
        config["file_mirror_method"] != "soft_link" and \
        config["file_mirror_method"] != "hard_link":
         Log(LogLevel.WARN,
-            f"Invalid file mirror method {config["file_mirror_method"]}. Supported options are copy, soft_link, hard_link",
+            f"Invalid file mirror method {config['file_mirror_method']}. Supported options are copy, soft_link, hard_link",
             always_log=True)
         ok = False
 
@@ -373,67 +374,67 @@ def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
 
     if not library_status_path_obj.is_file():
         Log(LogLevel.WARN,
-            f"Library status path {config["formatted_library_status_path"]} does not exist or is not a file",
+            f"Library status path {config['formatted_library_status_path']} does not exist or is not a file",
             always_log=True)
         ok = False
     if not library_path_obj.is_dir():
         Log(LogLevel.WARN,
-            f"Library path {config["formatted_library_path"]} does not exist or is not a directory",
+            f"Library path {config['formatted_library_path']} does not exist or is not a directory",
             always_log=True)
         ok = False
 
     if config["output_library_path"] == config["library_path"]:
         Log(LogLevel.WARN,
-            f"Output library path {config["formatted_output_library_path"]} matches library path {config["formatted_library_path"]}",
+            f"Output library path {config['formatted_output_library_path']} matches library path {config['formatted_library_path']}",
             always_log=True)
         ok = False
     if library_path_obj in output_library_path_obj.parents:
         Log(LogLevel.WARN,
-            f"Output library path {config["formatted_output_library_path"]} is inside library path {config["formatted_library_path"]}",
+            f"Output library path {config['formatted_output_library_path']} is inside library path {config['formatted_library_path']}",
             always_log=True)
         ok = False
     if output_library_path_obj in library_path_obj.parents:
         Log(LogLevel.WARN,
-            f"Library path {config["formatted_library_path"]} is inside output library path {config["formatted_output_library_path"]}",
+            f"Library path {config['formatted_library_path']} is inside output library path {config['formatted_output_library_path']}",
             always_log=True)
         ok = False
 
     if args.func is convert_playlists:
         if not library_playlist_path_obj.is_dir():
             Log(LogLevel.WARN,
-                f"Library playlist path {config["formatted_library_playlist_path"]} does not exist or is not a directory",
+                f"Library playlist path {config['formatted_library_playlist_path']} does not exist or is not a directory",
                 always_log=True)
             ok = False
         if not portable_playlist_path_obj.is_dir():
             Log(LogLevel.WARN,
-                f"Portable playlist path {config["formatted_portable_playlist_path"]} does not exist or is not a directory",
+                f"Portable playlist path {config['formatted_portable_playlist_path']} does not exist or is not a directory",
                 always_log=True)
             ok = False
 
         if config["portable_playlist_path"] == config["library_playlist_path"]:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config["formatted_portable_playlist_path"]} matches library playlist path {config["formatted_library_playlist_path"]}",
+                f"Portable playlists path {config['formatted_portable_playlist_path']} matches library playlist path {config['formatted_library_playlist_path']}",
                 always_log=True)
             ok = False
         if library_playlist_path_obj in portable_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config["formatted_portable_playlist_path"]} is inside library playlist path {config["formatted_library_playlist_path"]}",
+                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside library playlist path {config['formatted_library_playlist_path']}",
                 always_log=True)
             ok = False
         if portable_playlist_path_obj in library_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Library playlists path {config["formatted_library_playlist_path"]} is inside portable playlist path {config["formatted_portable_playlist_path"]}",
+                f"Library playlists path {config['formatted_library_playlist_path']} is inside portable playlist path {config['formatted_portable_playlist_path']}",
                 always_log=True)
             ok = False
 
         if config["portable_playlist_path"] == config["output_library_path"]:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config["formatted_portable_playlist_path"]} matches output library playlist path {config["formatted_output_library_path"]}",
+                f"Portable playlists path {config['formatted_portable_playlist_path']} matches output library playlist path {config['formatted_output_library_path']}",
                 always_log=True)
             ok = False
         if output_library_path_obj in portable_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config["formatted_portable_playlist_path"]} is inside output library path {config["formatted_output_library_path"]}",
+                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside output library path {config['formatted_output_library_path']}",
                 always_log=True)
             ok = False
 
@@ -691,7 +692,7 @@ def ReadCache() -> None:
     start_time = time()
     cache = Cache()
 
-    Log(LogLevel.INFO, f"Reading library status from {cfg["formatted_library_status_path"]}")
+    Log(LogLevel.INFO, f"Reading library status from {cfg['formatted_library_status_path']}")
 
     with open(cfg["library_status_path"], encoding="utf-8") as stream:
         try:
@@ -717,7 +718,7 @@ def ReadCache() -> None:
 def WriteCache() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Saving library status to {cfg["formatted_library_status_path"]}")
+    Log(LogLevel.INFO, f"Saving library status to {cfg['formatted_library_status_path']}")
     with open(cfg["library_status_path"], "w", encoding="utf-8") as stream:
         try:
             stream.write(yaml.dump(cache.asdict()))
@@ -848,7 +849,7 @@ def ReencodeFlac(entry) -> bool:
                 if errs:
                     reencode_log_level = LogLevel.WARN
                     reencode_log += f"\n{fmt.WARNING}FLAC reencode passed with warnings:" \
-                                    f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
+                                    f"\n{errs.removesuffix(NEWLINE)}{fmt.ENDC}"
                 else:
                     reencode_log_level = LogLevel.DEBUG
                 Log(reencode_log_level, reencode_log)
@@ -863,7 +864,7 @@ def ReencodeFlac(entry) -> bool:
                 else:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
                                        f"{fmt.WARNING}FLAC reencode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
+                                       f"{errs.removesuffix(NEWLINE)}{fmt.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -903,7 +904,7 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
                 if padding_over_limit or padding_under_limit:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
                                         f"{LOG_PREFIX_INDENT}flac has {num_padding_bytes} bytes of padding"
-                                        f"{(" (too much)" if padding_over_limit else " (not enough)")}")
+                                        f"{(' (too much)' if padding_over_limit else ' (not enough)')}")
                     return True, RepadAction.RESIZE
                 elif num_padding_blocks > 1:
                     Log(LogLevel.DEBUG, f"{repad_check_log}\n" \
@@ -924,7 +925,7 @@ def CheckIfRepadNecessary(entry) -> Tuple[bool, RepadAction]:
                 else:
                     Log(LogLevel.WARN, f"{repad_check_log}\n" \
                                        f"{fmt.WARNING}metaflac padding check failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
+                                       f"{errs.removesuffix(NEWLINE)}{fmt.ENDC}")
                 return False, RepadAction.NONE
 
         except subprocess.TimeoutExpired:
@@ -945,7 +946,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             # metaflac does not allow --remove and --add-padding in the same command
             metaflac_args = f"metaflac --remove --block-type=PADDING --dont-use-padding {entry.quoted_path}" \
                             f"&&" \
-                            f"metaflac --add-padding={cfg["max_padding_size"]} {entry.quoted_path}"
+                            f"metaflac --add-padding={cfg['max_padding_size']} {entry.quoted_path}"
             repad_description = "resize padding"
             use_shell = True
         case RepadAction.NONE:
@@ -983,7 +984,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                 if errs:
                     repad_log_level = LogLevel.WARN
                     repad_log += f"\n{fmt.WARNING}FLAC repad passed with warnings:" \
-                                 f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
+                                 f"\n{errs.removesuffix(NEWLINE)}{fmt.ENDC}"
                 else:
                     repad_log_level = LogLevel.DEBUG
                 Log(repad_log_level, repad_log)
@@ -997,7 +998,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
                 else:
                     Log(LogLevel.WARN, f"{repad_log}\n" \
                                        f"{fmt.WARNING}FLAC repad failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
+                                       f"{errs.removesuffix(NEWLINE)}{fmt.ENDC}")
                     return True, False
 
         except subprocess.TimeoutExpired:
@@ -1035,7 +1036,7 @@ def TranscodeFlac(entry) -> bool:
                 if errs:
                     transcode_log_level = LogLevel.WARN
                     transcode_log += f"\n{fmt.WARNING}Transcode passed with warnings:" \
-                                     f"\n{errs.removesuffix('\n')}{fmt.ENDC}"
+                                     f"\n{errs.removesuffix(NEWLINE)}{fmt.ENDC}"
                 else:
                     transcode_log_level = LogLevel.DEBUG
                 Log(transcode_log_level, transcode_log)
@@ -1049,7 +1050,7 @@ def TranscodeFlac(entry) -> bool:
                 else:
                     Log(LogLevel.WARN, f"{transcode_log}\n" \
                                        f"{fmt.WARNING}Transcode failed with return code {p.returncode}:\n" \
-                                       f"{errs.removesuffix('\n')}{fmt.ENDC}")
+                                       f"{errs.removesuffix(NEWLINE)}{fmt.ENDC}")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -1157,7 +1158,7 @@ def PrintScanSummary(stats, early_exit=False) -> None:
     if test_specified:
         summary_log_level = LogLevel.WARN if stats["num_tests_failed"] > 0 else LogLevel.INFO
         num_tests = stats["num_tests_passed"] + stats["num_tests_failed"]
-        pass_fail = f": {stats["num_tests_passed"]} passes, {stats["num_tests_failed"]} failures" if num_tests else ""
+        pass_fail = f": {stats['num_tests_passed']} passes, {stats['num_tests_failed']} failures" if num_tests else ""
         test_color = fmt.WARNING if stats["num_tests_failed"] else fmt.ENDC
         test_summary = f"\n{test_color}{num_tests} flac tests performed{pass_fail}{fmt.ENDC}"
     else:
@@ -1167,9 +1168,9 @@ def PrintScanSummary(stats, early_exit=False) -> None:
     scan_result = "Scan interrupted:" if early_exit else "Scan complete:"
 
     Log(summary_log_level, f"{scan_result}\n" \
-                           f"{stats["num_dirs"]} dirs ({stats["num_new_dirs"]} new)\n" \
-                           f"{stats["num_files"]} files ({stats["num_new_files"]} new)\n" \
-                           f"{stats["num_flacs"]} flacs ({stats["num_new_flacs"]} new)" + \
+                           f"{stats['num_dirs']} dirs ({stats['num_new_dirs']} new)\n" \
+                           f"{stats['num_files']} files ({stats['num_new_files']} new)\n" \
+                           f"{stats['num_flacs']} flacs ({stats['num_new_flacs']} new)" + \
                            test_summary)
 
     if stats["failed_flac_tests"]:
@@ -1198,7 +1199,7 @@ def ScanLibrary() -> None:
     start_time = time()
 
     scan_test_log = "Scanning and testing library" if test_specified else "Scanning library"
-    Log(LogLevel.INFO, f"{scan_test_log} in {cfg["formatted_library_path"]}")
+    Log(LogLevel.INFO, f"{scan_test_log} in {cfg['formatted_library_path']}")
 
     stats = {
         "num_dirs": 0,
@@ -1331,7 +1332,7 @@ def PrintReencodeSummary(stats, early_exit) -> None:
 def ReencodeLibrary() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Reencoding FLACs in {cfg["formatted_library_path"]}")
+    Log(LogLevel.INFO, f"Reencoding FLACs in {cfg['formatted_library_path']}")
 
     stats = {
         "num_reencoded": 0,
@@ -1416,7 +1417,7 @@ def PrintRepadSummary(stats, early_exit) -> None:
 def RepadLibrary() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Re-padding FLACs in {cfg["formatted_library_path"]}")
+    Log(LogLevel.INFO, f"Re-padding FLACs in {cfg['formatted_library_path']}")
 
     stats = {
         "num_not_checked": 0,
@@ -1468,7 +1469,7 @@ def RemoveElementsFromSequence(sequence, element_indexes) -> None:
 def RemoveOrphanedFilesFromPortable() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Removing orphaned files from {cfg["formatted_output_library_path"]}")
+    Log(LogLevel.INFO, f"Removing orphaned files from {cfg['formatted_output_library_path']}")
 
     stats = {
         "num_dirs_removed": 0,
@@ -1543,7 +1544,7 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
 
     if stats["num_file_mirrors_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        mirror_fail = f"\n{fmt.WARNING}Files failed to mirror:                   {stats["num_file_mirrors_failed"]}{fmt.ENDC}"
+        mirror_fail = f"\n{fmt.WARNING}Files failed to mirror:                   {stats['num_file_mirrors_failed']}{fmt.ENDC}"
         flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
@@ -1551,16 +1552,16 @@ def PrintMirrorAndTranscodeSummary(stats, early_exit=False) -> None:
 
     if stats["num_flac_transcodes_failed"] > 0:
         summary_log_level = LogLevel.WARN
-        transcode_fail = f"\n{fmt.WARNING}Flacs failed to transcode:                {stats["num_flac_transcodes_failed"]}{fmt.ENDC}"
+        transcode_fail = f"\n{fmt.WARNING}Flacs failed to transcode:                {stats['num_flac_transcodes_failed']}{fmt.ENDC}"
         flag.SetExitCode(ExitCode.WARN)
     else:
         summary_log_level = LogLevel.INFO
         transcode_fail = ""
 
     Log(summary_log_level, f"{mirror_and_transcode_result}\n" \
-                           f"Directories mirrored (new/total):         {stats["num_dirs_mirrored"]}/{len(cache.dirs)}\n" \
-                           f"Files mirrored (new/interrupted/total):   {stats["num_file_mirrors_succeeded"]}/{stats["num_file_mirrors_interrupted"]}/{len(cache.files)}\n" \
-                           f"Flacs transcoded (new/interrupted/total): {stats["num_flac_transcodes_succeeded"]}/{stats["num_flac_transcodes_interrupted"]}/{len(cache.flacs)}" + \
+                           f"Directories mirrored (new/total):         {stats['num_dirs_mirrored']}/{len(cache.dirs)}\n" \
+                           f"Files mirrored (new/interrupted/total):   {stats['num_file_mirrors_succeeded']}/{stats['num_file_mirrors_interrupted']}/{len(cache.files)}\n" \
+                           f"Flacs transcoded (new/interrupted/total): {stats['num_flac_transcodes_succeeded']}/{stats['num_flac_transcodes_interrupted']}/{len(cache.flacs)}" + \
                            mirror_fail + \
                            transcode_fail)
 
@@ -1592,7 +1593,7 @@ def MirrorFile(entry) -> bool:
                     case "hard_link":
                         os.link(entry.library_path, entry.portable_path)
                     case _:
-                        Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: Invalid file mirror method '{cfg["file_mirror_method"]}'")
+                        Log(LogLevel.ERROR, f"SHOULD NOT HAPPEN: Invalid file mirror method: {cfg['file_mirror_method']}")
 
             entry.fingerprint_on_last_mirror = entry.fingerprint_on_last_scan
         except OSError as exc:
@@ -1604,7 +1605,7 @@ def MirrorFile(entry) -> bool:
 def MirrorLibrary() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Mirroring/transcoding files to portable library {cfg["formatted_output_library_path"]}")
+    Log(LogLevel.INFO, f"Mirroring/transcoding files to portable library {cfg['formatted_output_library_path']}")
 
     stats = {
         "num_dirs_mirrored": 0,
@@ -1686,7 +1687,7 @@ def MirrorLibrary() -> None:
 def ListOrphanedEntries() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Listing orphaned files to be removed from {cfg["formatted_output_library_path"]}")
+    Log(LogLevel.INFO, f"Listing orphaned files to be removed from {cfg['formatted_output_library_path']}")
 
     num_orphaned_dirs = 0
     num_orphaned_files = 0
@@ -1720,7 +1721,7 @@ def ListOrphanedEntries() -> None:
 def ListEntries() -> None:
     start_time = time()
 
-    Log(LogLevel.INFO, f"Listing all scanned files in {cfg["formatted_library_path"]}")
+    Log(LogLevel.INFO, f"Listing all scanned files in {cfg['formatted_library_path']}")
 
     num_dirs = 0
     num_files = 0
@@ -1813,7 +1814,7 @@ def mirror_library() -> None:
     WriteCache()
 
 def convert_playlists() -> None:
-    Log(LogLevel.INFO, f"Converting playlists in {cfg["formatted_library_playlist_path"]}")
+    Log(LogLevel.INFO, f"Converting playlists in {cfg['formatted_library_playlist_path']}")
 
     # Simpler to recreate all playlists each run; surely no one has enough playlists that this takes time
     if os.path.isdir(cfg["portable_playlist_path"]):
@@ -1891,7 +1892,7 @@ if __name__ == '__main__':
 
     if cfg["num_threads"] == 0:
         cfg["num_threads"] = cpu_count
-    Log(LogLevel.INFO, f"Using {cfg["num_threads"]} worker threads")
+    Log(LogLevel.INFO, f"Using {cfg['num_threads']} worker threads")
 
     os.makedirs(cfg["output_library_path"], exist_ok=True)
     if args.func is convert_playlists:
