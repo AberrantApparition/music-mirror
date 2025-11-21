@@ -957,7 +957,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
             repad_description = "resize padding"
             use_shell = True
         case RepadAction.NONE:
-            if repad_check_ok:
+            if repad_check_ok and not args.dry_run:
                 entry.fingerprint_on_last_repad = entry.fingerprint_on_last_scan
             return False, repad_check_ok
 
@@ -965,7 +965,7 @@ def RepadFlac(entry) -> Tuple[bool, bool]:
 
     if args.dry_run:
         Log(LogLevel.TRACE, f"Dry run: {repad_log}")
-        return True, False
+        return True, True
 
     with subprocess.Popen(metaflac_args,
                           shell=use_shell,
