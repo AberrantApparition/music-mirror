@@ -863,7 +863,7 @@ def ReencodeFlac(entry) -> bool:
                 return True
 
             else:
-                Path.unlink(tmp_path, missing_ok=True)
+                Path.unlink(Path(tmp_path), missing_ok=True)
                 if p.returncode < 0:
                     Log(LogLevel.WARN, f"{reencode_log}\n" \
                                        f"{fmt.WARNING}FLAC reencode terminated by signal {-1 * p.returncode}{fmt.ENDC}")
@@ -875,7 +875,7 @@ def ReencodeFlac(entry) -> bool:
                     return False
 
         except subprocess.TimeoutExpired:
-            Path.unlink(tmp_path, missing_ok=True)
+            Path.unlink(Path(tmp_path), missing_ok=True)
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False
 
@@ -1515,7 +1515,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
             else:
                 Log(LogLevel.TRACE, deletion_str)
-                Path.unlink(entry.portable_path, missing_ok=True)
+                Path.unlink(Path(entry.portable_path), missing_ok=True)
                 removal_list.append(index)
             stats['num_files_removed'] += 1
         if flag.Exit():
@@ -1531,7 +1531,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
             else:
                 Log(LogLevel.TRACE, deletion_str)
-                Path.unlink(entry.portable_path, missing_ok=True)
+                Path.unlink(Path(entry.portable_path), missing_ok=True)
                 removal_list.append(index)
             stats['num_transcodes_removed'] += 1
         if flag.Exit():
@@ -1587,7 +1587,7 @@ def MirrorFile(entry) -> bool:
     else:
         Log(LogLevel.DEBUG, file_mirror_str)
         try:
-            Path.unlink(entry.portable_path, missing_ok=True)
+            Path.unlink(Path(entry.portable_path), missing_ok=True)
             if DetectPlaylist(entry.library_path):
                 if not ConvertPlaylist(entry.library_path, entry.portable_path, file_mirror_str):
                     return False
@@ -1829,7 +1829,7 @@ def convert_playlists() -> None:
             for file in files:
                 file_path = os.path.join(root, file)
                 if DetectPlaylist(file_path):
-                    Path.unlink(file_path, missing_ok=True)
+                    Path.unlink(Path(file_path), missing_ok=True)
     else:
         os.makedirs(cfg["portable_playlist_path"])
 
