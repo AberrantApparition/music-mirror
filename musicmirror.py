@@ -60,7 +60,7 @@ class ExitCode(Enum): # pylint: disable=missing-class-docstring
     OK    = 0
     WARN  = 1
     ERROR = 2
-    def __lt__(self, other) -> Union[bool, NotImplemented]:
+    def __lt__(self, other) -> Union[bool, type(NotImplemented) ]:
         if self.__class__ is other.__class__:
             return self.value < other.value
         return NotImplemented
@@ -72,7 +72,7 @@ class LogLevel(Enum): # pylint: disable=missing-class-docstring
     INFO  = 2
     DEBUG = 3
     TRACE = 4
-    def __lt__(self, other) -> Union[bool, NotImplemented]:
+    def __lt__(self, other) -> Union[bool, type(NotImplemented) ]:
         if self.__class__ is other.__class__:
             return self.value < other.value
         return NotImplemented
