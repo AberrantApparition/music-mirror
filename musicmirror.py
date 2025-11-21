@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from functools import total_ordering
-from hashlib import file_digest
+import hashlib
 from itertools import chain
 import os
 from pathlib import Path
@@ -795,8 +795,15 @@ def ConditionallyRunFlacTest(entry, fingerprint) -> Tuple[bool, bool, str]:
     return test_ran, entry.test_pass, status
 
 def CalculateFileHash(file_path) -> str:
-    with open(file_path, "rb") as f:
-        return file_digest(f, 'sha224').hexdigest()
+    if sys.version_info >= (3, 11):
+        with open(file_path, "rb") as f:
+            return hashlib.file_digest(f, 'sha224').hexdigest()
+    else:
+        h = hashlib.sha224(usedforsecurity=False)
+        with open(file_path, "rb") as f:
+            while chunk := f.read(65536):
+                h.update(chunk)
+        return h.hexdigest()
 
 def CalculateFingerprint(file_path) -> str:
     if cfg["use_hash_as_fingerprint"]:
