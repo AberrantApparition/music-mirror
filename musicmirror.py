@@ -84,7 +84,7 @@ def SetThreadName() -> None:
         thread_num = thread_name.split('_')[-1].zfill(2)
         thread_info.name = f"WT{thread_num}"
 
-def Log(level, log, always_log=False, color_log=True) -> None:
+def Log(level, log, always_log=False) -> None:
     exit_early = False
     if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
@@ -92,22 +92,20 @@ def Log(level, log, always_log=False, color_log=True) -> None:
         if not hasattr(thread_info, 'name'):
             SetThreadName()
 
-        color = Format if (color_log and cfg["color_logs"]) else NoFormat
-
         match level:
             case LogLevel.ERROR:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.FAIL}{fmt.BOLD}ERROR{fmt.ENDC}] {log}"
                 exit_early = True
             case LogLevel.WARN:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.WARNING}{color.BOLD}WARN{color.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.WARNING}{fmt.BOLD}WARN{fmt.ENDC} ] {log}"
             case LogLevel.INFO:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.OKGREEN}INFO{color.ENDC} ] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.OKGREEN}INFO{fmt.ENDC} ] {log}"
             case LogLevel.DEBUG:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.OKBLUE}DEBUG{color.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.OKBLUE}DEBUG{fmt.ENDC}] {log}"
             case LogLevel.TRACE:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.OKCYAN}TRACE{color.ENDC}] {log}"
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.OKCYAN}TRACE{fmt.ENDC}] {log}"
             case _:
-                full_log = f"[{timestamp}][{thread_info.name}][{color.FAIL}{color.BOLD}ERROR{color.ENDC}] " \
+                full_log = f"[{timestamp}][{thread_info.name}][{fmt.FAIL}{fmt.BOLD}ERROR{fmt.ENDC}] " \
                            f"Invalid log level '{level}' for log '{log}'"
                 exit_early = True
 
@@ -118,15 +116,15 @@ def Log(level, log, always_log=False, color_log=True) -> None:
             flag.QuitWithoutSaving(ExitCode.ERROR.value) # pylint: disable=possibly-used-before-assignment
 
 def ReadConfig(config_path) -> dict:
-    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True, color_log=False)
+    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True)
 
     with open(config_path, encoding="utf-8") as stream:
         try:
             cfg_dict = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            Log(LogLevel.ERROR, str(exc))
+            Log(LogLevel.ERROR, str(exc), always_log=True)
 
-    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True, color_log=False)
+    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True)
 
     return cfg_dict
 
@@ -135,10 +133,10 @@ def ValidateConfigDictKey(config, key_name, expected_type) -> bool:
         if isinstance(config[key_name], expected_type):
             return True
         else:
-            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True, color_log=False)
+            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True)
             return False
     else:
-        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True, color_log=False)
+        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True)
         return False
 
 def ValidateConfig(config) -> bool:
@@ -184,44 +182,44 @@ def ValidateConfig(config) -> bool:
         case "trace":
             config["log_level"] = LogLevel.TRACE
         case _:
-            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True, color_log=False)
+            Log(LogLevel.WARN, f"Invalid log level {config["log_level"]}", always_log=True)
             ok = False
     if ok:
-        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True, color_log=False)
+        Log(LogLevel.INFO, f"Log level set to {config["log_level"]}", always_log=True)
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True)
         ok = False
 
     if config["min_padding_size"] < 0:
-        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["max_padding_size"] < 0:
-        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["target_padding_size"] < 0:
-        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["target_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True)
         ok = False
 
     if config["min_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["target_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True, color_log=False)
+        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True)
         ok = False
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
         Log(LogLevel.WARN,
             f"Number of worker threads ({config["num_threads"]}) cannot exceed number of cores available to process ({cpu_count})",
-            always_log=True, color_log=False)
+            always_log=True)
         ok = False
 
     if config["file_mirror_method"] != "copy" and \
@@ -229,7 +227,7 @@ def ValidateConfig(config) -> bool:
        config["file_mirror_method"] != "hard_link":
         Log(LogLevel.WARN,
             f"Invalid file mirror method {config["file_mirror_method"]}. Supported options are copy, soft_link, hard_link",
-            always_log=True, color_log=False)
+            always_log=True)
         ok = False
 
     return ok
@@ -1867,7 +1865,7 @@ if __name__ == '__main__':
     print_lock = Lock()
     cpu_count = os.process_cpu_count() if sys.version_info >= (3, 13) else os.cpu_count()
     flag = GracefulExiter()
-    fmt = {}
+    fmt = NoFormat
     cache = []
 
     # ffmpeg changes stdin attributes when it is terminated
@@ -1889,7 +1887,7 @@ if __name__ == '__main__':
     if ValidateConfig(tmp_config):
         cfg = tmp_config
     else:
-        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True, color_log=False)
+        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True)
 
     if cfg["num_threads"] == 0:
         cfg["num_threads"] = cpu_count
