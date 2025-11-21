@@ -31,7 +31,6 @@ import signal
 import stat
 import subprocess
 import sys
-import termios
 from threading import Lock, current_thread, local
 from time import time
 from typing import Tuple, Dict, Union
@@ -236,7 +235,9 @@ def ValidateConfig(config) -> bool:
     return ok
 
 def RestoreStdinAttr() -> None:
-    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr) # pylint: disable=possibly-used-before-assignment
+    # pylint: disable=possibly-used-before-assignment
+    if not is_windows:
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_stdin_attr)
 
 class GracefulExiter():
     state: bool
@@ -1871,7 +1872,9 @@ if __name__ == '__main__':
 
     # ffmpeg changes stdin attributes when it is terminated
     # ffmpeg support was dropped, but no harm leaving this here in case it's still needed somehow
-    original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
+    if not is_windows:
+        import termios
+        original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
 
     args = ParseArgs()
 
