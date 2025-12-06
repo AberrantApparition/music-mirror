@@ -1486,7 +1486,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.dirs):
-        if not entry.present_in_last_scan:
+        if not entry.present_in_last_scan and entry.mirrored:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
@@ -1509,7 +1509,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.files):
-        if not entry.present_in_last_scan:
+        if not entry.present_in_last_scan and entry.fingerprint_on_last_mirror:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
@@ -1525,7 +1525,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.flacs):
-        if not entry.present_in_last_scan:
+        if not entry.present_in_last_scan and entry.fingerprint_on_last_transcode:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
