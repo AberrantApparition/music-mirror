@@ -56,18 +56,15 @@ Format = namedtuple('Format', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 
 NoFormat = namedtuple('NoFormat', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD')('','','','','','','','')
 
-@total_ordering
-class ExitCode(Enum): # pylint: disable=missing-class-docstring
+class ExitCode(Enum):
+    """Possible exit codes for process"""
     OK    = 0
     WARN  = 1
     ERROR = 2
-    def __lt__(self, other) -> Union[bool, type(NotImplemented) ]:
-        if self.__class__ is other.__class__:
-            return self.value < other.value
-        return NotImplemented
 
 @total_ordering
-class LogLevel(Enum): # pylint: disable=missing-class-docstring
+class LogLevel(Enum):
+    """"Logging levels, ordered and comparable by severity"""
     ERROR = 0
     WARN  = 1
     INFO  = 2
@@ -876,7 +873,8 @@ def ReencodeFlac(entry) -> bool:
             Log(LogLevel.WARN, f"Reencode subprocess for {reencode_log} timed out")
             return False
 
-class RepadAction(Enum): # pylint: disable=missing-class-docstring
+class RepadAction(Enum):
+    """The action to take regarding repadding of a flac"""
     NONE           = 0
     MERGE_AND_SORT = 1
     RESIZE         = 2
