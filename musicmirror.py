@@ -1863,6 +1863,9 @@ def list_cache() -> None:
 
 if __name__ == '__main__':
     assert sys.version_info >= (3, 10)
+    if sys.version_info >= (3, 15):
+        import platform
+        print(f"Script has not been tested with current version of Python ({platform.python_version()}). Last tested with Python 3.13")
     script_start = time()
     is_windows = system() == "Windows"
     print_lock = Lock()

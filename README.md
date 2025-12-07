@@ -23,7 +23,7 @@ A fingerprint of each file is saved in `fingerprints.yaml`, allowing for increme
 - Not tested on Windows or Mac (though it is designed to work cross-platform)
 
 ## Requirements
-- Python 3.10 or higher (last tested with 3.13)
+- Python 3.10 or higher (last tested with 3.14)
 - `PyYaml` to read and write yaml config files
 - `flac` to encode and test FLAC files
 - `metaflac` to adjust padding in FLAC files
