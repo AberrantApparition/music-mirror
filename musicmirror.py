@@ -37,6 +37,7 @@ from typing import Tuple, Dict, Union
 import yaml
 
 CONFIG_FILE = "config.yaml"
+DEFAULT_FINGERPRINTS_FILE = "fingerprints.yaml"
 LOG_PREFIX_INDENT = "                               "
 NEWLINE = "\n"
 
@@ -373,10 +374,17 @@ def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
         ok = False
 
     if not library_status_path_obj.is_file():
-        Log(LogLevel.WARN,
-            f"Library status path {config['formatted_library_status_path']} does not exist or is not a file",
-            always_log=True)
-        ok = False
+        # Create a new fingerprints.yaml, only if the user hasn't changed the default name
+        if str(library_status_path_obj) == DEFAULT_FINGERPRINTS_FILE and not library_status_path_obj.exists():
+            Log(LogLevel.INFO,
+                f"Library status path {config['formatted_library_status_path']} not found, creating new file",
+                always_log=True)
+            library_status_path_obj.touch()
+        else:
+            Log(LogLevel.WARN,
+                f"Library status path {config['formatted_library_status_path']} does not exist or is not a file",
+                always_log=True)
+            ok = False
     if not library_path_obj.is_dir():
         Log(LogLevel.WARN,
             f"Library path {config['formatted_library_path']} does not exist or is not a directory",
