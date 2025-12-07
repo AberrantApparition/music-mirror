@@ -86,10 +86,11 @@ def SetThreadName() -> None:
         thread_num = thread_name.split('_')[-1].zfill(2)
         thread_info.name = f"WT{thread_num}"
 
-def Log(level, log, always_log=False) -> None:
-    exit_early = False
-    if always_log or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
+def Log(level, log) -> None:
+    # Always log if the config file has not been read yet
+    if "log_level" not in cfg or level <= cfg["log_level"]: # pylint: disable=possibly-used-before-assignment
         timestamp = str(datetime.now()).split(" ")[1]
+        exit_early = False
 
         if not hasattr(thread_info, 'name'):
             SetThreadName()
@@ -118,15 +119,15 @@ def Log(level, log, always_log=False) -> None:
             flag.QuitWithoutSaving(ExitCode.ERROR.value) # pylint: disable=possibly-used-before-assignment
 
 def ReadConfig(config_path) -> dict:
-    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}", always_log=True)
+    Log(LogLevel.INFO, f"Reading configuration settings from {FormatPath(config_path)}")
 
     with open(config_path, encoding="utf-8") as stream:
         try:
             cfg_dict = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            Log(LogLevel.ERROR, str(exc), always_log=True)
+            Log(LogLevel.ERROR, str(exc))
 
-    Log(LogLevel.INFO, f"Configuration settings read from {config_path}", always_log=True)
+    Log(LogLevel.INFO, f"Configuration settings read from {config_path}")
 
     return cfg_dict
 
@@ -135,10 +136,10 @@ def ValidateConfigDictKey(config, key_name, expected_type) -> bool:
         if isinstance(config[key_name], expected_type):
             return True
         else:
-            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}", always_log=True)
+            Log(LogLevel.WARN, f"Config option {key_name} has unexpected type {type(config[key_name])}")
             return False
     else:
-        Log(LogLevel.WARN, f"Config option {key_name} not found", always_log=True)
+        Log(LogLevel.WARN, f"Config option {key_name} not found")
         return False
 
 def ValidateConfig(config) -> bool:
@@ -184,52 +185,54 @@ def ValidateConfig(config) -> bool:
         case "trace":
             config["log_level"] = LogLevel.TRACE
         case _:
-            Log(LogLevel.WARN, f"Invalid log level {config['log_level']}", always_log=True)
+            Log(LogLevel.WARN, f"Invalid log level {config['log_level']}")
             ok = False
     if ok:
-        Log(LogLevel.INFO, f"Log level set to {config['log_level']}", always_log=True)
+        Log(LogLevel.INFO, f"Log level set to {config['log_level']}")
 
     # Do not validate opus max bitrate here because valid range depends on the number of audio channels. Leave it up to the user to get it right
     if config["opus_bitrate"] <= 0:
-        Log(LogLevel.WARN, "Opus bitrate must be a positive integer", always_log=True)
+        Log(LogLevel.WARN, "Opus bitrate must be a positive integer")
         ok = False
 
     if config["min_padding_size"] < 0:
-        Log(LogLevel.WARN, "Min flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Min flac padding size cannot be negative")
         ok = False
 
     if config["max_padding_size"] < 0:
-        Log(LogLevel.WARN, "Max flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Max flac padding size cannot be negative")
         ok = False
 
     if config["target_padding_size"] < 0:
-        Log(LogLevel.WARN, "Target flac padding size cannot be negative", always_log=True)
+        Log(LogLevel.WARN, "Target flac padding size cannot be negative")
         ok = False
 
     if config["min_padding_size"] > config["target_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than target_padding_size")
         ok = False
 
     if config["min_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "min_padding_size cannot be greater than max_padding_size")
         ok = False
 
     if config["target_padding_size"] > config["max_padding_size"]:
-        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size", always_log=True)
+        Log(LogLevel.WARN, "target_padding_size cannot be greater than max_padding_size")
         ok = False
 
     if config["num_threads"] > cpu_count: # pylint: disable=possibly-used-before-assignment
+        if sys.version_info >= (3, 13):
+            max_cores_description = f"number of cores available to the process ({cpu_count})"
+        else:
+            max_cores_description = f"number of cores available ({cpu_count})"
         Log(LogLevel.WARN,
-            f"Number of worker threads ({config['num_threads']}) cannot exceed number of cores available to process ({cpu_count})",
-            always_log=True)
+            f"Number of worker threads ({config['num_threads']}) cannot exceed {max_cores_description}")
         ok = False
 
     if config["file_mirror_method"] != "copy" and \
        config["file_mirror_method"] != "soft_link" and \
        config["file_mirror_method"] != "hard_link":
         Log(LogLevel.WARN,
-            f"Invalid file mirror method {config['file_mirror_method']}. Supported options are copy, soft_link, hard_link",
-            always_log=True)
+            f"Invalid file mirror method {config['file_mirror_method']}. Supported options are copy, soft_link, hard_link")
         ok = False
 
     return ok
@@ -369,81 +372,67 @@ def ValidateConfigPaths(config) -> bool: # pylint: disable=too-many-branches
 
     if config["library_path"] == "" or config["output_library_path"] == "":
         Log(LogLevel.WARN,
-            "Library path and output library path must be configured in config.yaml",
-            always_log=True)
+            "Library path and output library path must be configured in config.yaml")
         ok = False
 
     if not library_status_path_obj.is_file():
         # Create a new fingerprints.yaml, only if the user hasn't changed the default name
         if str(library_status_path_obj) == DEFAULT_FINGERPRINTS_FILE and not library_status_path_obj.exists():
             Log(LogLevel.INFO,
-                f"Library status path {config['formatted_library_status_path']} not found, creating new file",
-                always_log=True)
+                f"Library status path {config['formatted_library_status_path']} not found, creating new file")
             library_status_path_obj.touch()
         else:
             Log(LogLevel.WARN,
-                f"Library status path {config['formatted_library_status_path']} does not exist or is not a file",
-                always_log=True)
+                f"Library status path {config['formatted_library_status_path']} does not exist or is not a file")
             ok = False
     if not library_path_obj.is_dir():
         Log(LogLevel.WARN,
-            f"Library path {config['formatted_library_path']} does not exist or is not a directory",
-            always_log=True)
+            f"Library path {config['formatted_library_path']} does not exist or is not a directory")
         ok = False
 
     if config["output_library_path"] == config["library_path"]:
         Log(LogLevel.WARN,
-            f"Output library path {config['formatted_output_library_path']} matches library path {config['formatted_library_path']}",
-            always_log=True)
+            f"Output library path {config['formatted_output_library_path']} matches library path {config['formatted_library_path']}")
         ok = False
     if library_path_obj in output_library_path_obj.parents:
         Log(LogLevel.WARN,
-            f"Output library path {config['formatted_output_library_path']} is inside library path {config['formatted_library_path']}",
-            always_log=True)
+            f"Output library path {config['formatted_output_library_path']} is inside library path {config['formatted_library_path']}")
         ok = False
     if output_library_path_obj in library_path_obj.parents:
         Log(LogLevel.WARN,
-            f"Library path {config['formatted_library_path']} is inside output library path {config['formatted_output_library_path']}",
-            always_log=True)
+            f"Library path {config['formatted_library_path']} is inside output library path {config['formatted_output_library_path']}")
         ok = False
 
     if args.func is convert_playlists:
         if not library_playlist_path_obj.is_dir():
             Log(LogLevel.WARN,
-                f"Library playlist path {config['formatted_library_playlist_path']} does not exist or is not a directory",
-                always_log=True)
+                f"Library playlist path {config['formatted_library_playlist_path']} does not exist or is not a directory")
             ok = False
         if not portable_playlist_path_obj.is_dir():
             Log(LogLevel.WARN,
-                f"Portable playlist path {config['formatted_portable_playlist_path']} does not exist or is not a directory",
-                always_log=True)
+                f"Portable playlist path {config['formatted_portable_playlist_path']} does not exist or is not a directory")
             ok = False
 
         if config["portable_playlist_path"] == config["library_playlist_path"]:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config['formatted_portable_playlist_path']} matches library playlist path {config['formatted_library_playlist_path']}",
-                always_log=True)
+                f"Portable playlists path {config['formatted_portable_playlist_path']} matches library playlist path {config['formatted_library_playlist_path']}")
             ok = False
         if library_playlist_path_obj in portable_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside library playlist path {config['formatted_library_playlist_path']}",
-                always_log=True)
+                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside library playlist path {config['formatted_library_playlist_path']}")
             ok = False
         if portable_playlist_path_obj in library_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Library playlists path {config['formatted_library_playlist_path']} is inside portable playlist path {config['formatted_portable_playlist_path']}",
-                always_log=True)
+                f"Library playlists path {config['formatted_library_playlist_path']} is inside portable playlist path {config['formatted_portable_playlist_path']}")
             ok = False
 
         if config["portable_playlist_path"] == config["output_library_path"]:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config['formatted_portable_playlist_path']} matches output library playlist path {config['formatted_output_library_path']}",
-                always_log=True)
+                f"Portable playlists path {config['formatted_portable_playlist_path']} matches output library playlist path {config['formatted_output_library_path']}")
             ok = False
         if output_library_path_obj in portable_playlist_path_obj.parents:
             Log(LogLevel.WARN,
-                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside output library path {config['formatted_output_library_path']}",
-                always_log=True)
+                f"Portable playlists path {config['formatted_portable_playlist_path']} is inside output library path {config['formatted_output_library_path']}")
             ok = False
 
     return ok
@@ -1883,9 +1872,10 @@ if __name__ == '__main__':
     flag = GracefulExiter()
     fmt = NoFormat
     cache = []
+    cfg = {}
 
     # ffmpeg changes stdin attributes when it is terminated
-    # ffmpeg support was dropped, but no harm leaving this here in case it's still needed somehow
+    # ffmpeg support has been dropped, but no harm leaving this here in case it's still needed somehow
     if not is_windows:
         import termios
         original_stdin_attr = termios.tcgetattr(sys.stdin.fileno())
@@ -1898,12 +1888,11 @@ if __name__ == '__main__':
     retest_on_update = hasattr(args, 'retest_on_update') and args.retest_on_update
     test_specified = test or retest_on_update or test_force
 
-    cfg = {}
     tmp_config = ReadConfig(CONFIG_FILE)
     if ValidateConfig(tmp_config):
         cfg = tmp_config
     else:
-        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}", always_log=True)
+        Log(LogLevel.ERROR, f"Error(s) found in {CONFIG_FILE}")
 
     if cfg["num_threads"] == 0:
         cfg["num_threads"] = cpu_count
