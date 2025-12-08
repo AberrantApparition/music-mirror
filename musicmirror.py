@@ -56,11 +56,16 @@ Format = namedtuple('Format', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BO
 
 NoFormat = namedtuple('NoFormat', 'HEADER OKBLUE OKCYAN OKGREEN WARNING FAIL ENDC BOLD')('','','','','','','','')
 
+@total_ordering
 class ExitCode(Enum):
-    """Possible exit codes for process"""
+    """Possible exit codes for process, ordered and comparable by severity"""
     OK    = 0
     WARN  = 1
     ERROR = 2
+    def __lt__(self, other) -> Union[bool, type(NotImplemented) ]:
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
 
 @total_ordering
 class LogLevel(Enum):
@@ -1481,7 +1486,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.dirs):
-        if not entry.present_in_last_scan and entry.mirrored:
+        if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
@@ -1504,7 +1509,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.files):
-        if not entry.present_in_last_scan and entry.fingerprint_on_last_mirror:
+        if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
@@ -1520,7 +1525,7 @@ def RemoveOrphanedFilesFromPortable() -> None:
 
     removal_list = []
     for index, entry in enumerate(cache.flacs):
-        if not entry.present_in_last_scan and entry.fingerprint_on_last_transcode:
+        if not entry.present_in_last_scan:
             deletion_str = f"Delete {entry.formatted_portable_path}"
             if args.dry_run:
                 Log(LogLevel.TRACE, f"Dry run: {deletion_str}")
